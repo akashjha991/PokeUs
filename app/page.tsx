@@ -61,9 +61,9 @@ export default function LandingPage() {
             </div>
             <span className="font-display font-bold text-lg">Poke<span className="gradient-text">Us</span></span>
           </Link>
-          <div className="flex items-center gap-3">
-            <Link href="/login" className="btn-ghost text-sm py-2 px-5">Sign In</Link>
-            <Link href="/signup" className="btn-brand text-sm py-2 px-5">Get Started</Link>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Link href="/login" className="btn-ghost text-xs sm:text-sm py-1.5 px-3 sm:py-2 sm:px-5 whitespace-nowrap">Sign In</Link>
+            <Link href="/signup" className="btn-brand text-xs sm:text-sm py-1.5 px-3 sm:py-2 sm:px-5 whitespace-nowrap">Get Started</Link>
           </div>
         </div>
       </nav>

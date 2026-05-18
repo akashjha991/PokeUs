@@ -5,7 +5,7 @@ import { useAuthStore, useNotificationStore } from "@/frontend/store";
 import { getInitials, formatChatTime } from "@/backend/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useRef, useEffect } from "react";
-import { Send, Image, Smile, MoreVertical, ArrowLeft, Reply, X, Camera, Heart, Sparkles, Maximize2 } from "lucide-react";
+import { Send, Image, Smile, MoreVertical, ArrowLeft, Reply, X, Camera, Heart, Sparkles, Maximize2, Search, Mic, PlusCircle } from "lucide-react";
 import Link from "next/link";
 import { useSocket } from "@/frontend/providers/SocketProvider";
 import { encryptMessage, decryptMessage, generateCID } from "@/backend/lib/crypto";
@@ -654,58 +654,65 @@ export default function ChatPage() {
         </AnimatePresence>
 
         {/* INPUT CONTROLS BAR */}
-        <div className="px-4 pt-3 border-t flex items-end gap-2" style={{ borderColor: "rgb(var(--border))", background: "rgb(var(--surface))", paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}>
+        <div className="px-3 pt-2 pb-2 border-t" style={{ borderColor: "rgb(var(--border))", background: "black", paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}>
           
-          <div className="flex gap-1.5 flex-shrink-0">
-            <button 
-              onClick={() => cameraInputRef.current?.click()}
-              className="p-2.5 rounded-xl transition-all active:scale-95 hover:bg-zinc-800/40" 
-              style={{ background: "rgb(var(--surface-muted))" }}
-              title="Snap Camera Pic"
-            >
-              <Camera size={20} style={{ color: "rgb(var(--text-muted))" }} />
-            </button>
-
-            <button 
-              onClick={() => setShowEmoji(!showEmoji)} 
-              className="p-2.5 rounded-xl transition-all active:scale-95 hover:bg-zinc-800/40" 
-              style={{ background: "rgb(var(--surface-muted))" }}
-              title="Emojis & Stickers"
-            >
-              <Smile size={20} style={{ color: showEmoji ? "rgb(217,70,239)" : "rgb(var(--text-muted))" }} />
-            </button>
+          <div className="flex items-end gap-2 bg-[#262626] rounded-[28px] p-1.5" style={{ minHeight: "48px" }}>
             
-            <button 
-              onClick={() => fileInputRef.current?.click()}
-              className="p-2.5 rounded-xl transition-all active:scale-95 hover:bg-zinc-800/40" 
-              style={{ background: "rgb(var(--surface-muted))" }}
-              title="Upload Image"
-            >
-              <Image size={20} style={{ color: "rgb(var(--text-muted))" }} />
-            </button>
-          </div>
-          
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Type a message..."
-            rows={1}
-            className="input-field resize-none py-2.5 flex-1"
-            style={{ minHeight: 44, maxHeight: 120 }}
-          />
+            {/* LEFT ACTION BUTTON */}
+            <div className="flex-shrink-0">
+              {input.trim() ? (
+                <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#8b5cf6] text-white">
+                  <Search size={22} strokeWidth={2.5} />
+                </div>
+              ) : (
+                <button 
+                  onClick={() => cameraInputRef.current?.click()}
+                  className="w-10 h-10 rounded-full flex items-center justify-center bg-[#4f46e5] text-white transition-transform active:scale-95"
+                >
+                  <Camera size={22} strokeWidth={2.5} />
+                </button>
+              )}
+            </div>
 
-          <button
-            onClick={() => sendMessage()}
-            disabled={!input.trim()}
-            className="flex-shrink-0 w-11 h-11 rounded-2xl flex items-center justify-center transition-all duration-200 active:scale-95"
-            style={{
-              background: input.trim() ? "linear-gradient(135deg, rgb(var(--brand)), rgb(var(--brand-secondary)))" : "rgb(var(--surface-muted))",
-              color: input.trim() ? "white" : "rgb(var(--text-subtle))",
-            }}
-          >
-            <Send size={18} />
-          </button>
+            {/* INPUT FIELD */}
+            <textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Message..."
+              rows={1}
+              className="resize-none flex-1 bg-transparent border-none outline-none text-[15px] px-2 py-2.5 text-white placeholder-[#a1a1aa]"
+              style={{ minHeight: 44, maxHeight: 120, lineHeight: "1.4" }}
+            />
+
+            {/* RIGHT ACTION BUTTONS */}
+            <div className="flex items-center flex-shrink-0 mb-0.5">
+              {input.trim() ? (
+                <button
+                  onClick={() => sendMessage()}
+                  disabled={!input.trim()}
+                  className="w-10 h-10 rounded-full flex items-center justify-center bg-[#8b5cf6] text-white transition-transform active:scale-95 mr-0.5"
+                >
+                  <Send size={18} strokeWidth={2.5} className="ml-1 mt-0.5" />
+                </button>
+              ) : (
+                <div className="flex items-center gap-3.5 text-white mr-3">
+                  <button title="Voice Message" className="transition-transform active:scale-95">
+                    <Mic size={24} strokeWidth={2} />
+                  </button>
+                  <button onClick={() => fileInputRef.current?.click()} title="Gallery" className="transition-transform active:scale-95">
+                    <Image size={24} strokeWidth={2} />
+                  </button>
+                  <button onClick={() => setShowEmoji(!showEmoji)} title="Stickers" className="transition-transform active:scale-95">
+                    <Smile size={24} strokeWidth={2} style={{ color: showEmoji ? "#8b5cf6" : "white" }} />
+                  </button>
+                  <button title="More" className="transition-transform active:scale-95">
+                    <PlusCircle size={24} strokeWidth={2} />
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* TABBED EMOJI & STICKERS SELECTOR HUD */}

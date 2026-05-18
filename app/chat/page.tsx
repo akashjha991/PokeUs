@@ -654,22 +654,22 @@ export default function ChatPage() {
         </AnimatePresence>
 
         {/* INPUT CONTROLS BAR */}
-        <div className="px-3 pt-2 pb-2 border-t" style={{ borderColor: "rgb(var(--border))", background: "black", paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}>
+        <div className="px-2 pt-1.5 pb-1.5 border-t bg-black" style={{ borderColor: "rgb(var(--border))", paddingBottom: "max(8px, env(safe-area-inset-bottom))" }}>
           
-          <div className="flex items-end gap-2 bg-[#262626] rounded-[28px] p-1.5" style={{ minHeight: "48px" }}>
+          <div className="flex items-end gap-2 bg-[#262626] rounded-[24px] pl-1.5 pr-2 py-1.5" style={{ minHeight: "48px" }}>
             
             {/* LEFT ACTION BUTTON */}
             <div className="flex-shrink-0">
               {input.trim() ? (
-                <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#8b5cf6] text-white">
-                  <Search size={22} strokeWidth={2.5} />
+                <div className="w-9 h-9 rounded-full flex items-center justify-center bg-[#8b5cf6] text-white">
+                  <Search size={20} strokeWidth={2.5} />
                 </div>
               ) : (
                 <button 
                   onClick={() => cameraInputRef.current?.click()}
-                  className="w-10 h-10 rounded-full flex items-center justify-center bg-[#4f46e5] text-white transition-transform active:scale-95"
+                  className="w-9 h-9 rounded-full flex items-center justify-center bg-[#4f46e5] text-white transition-transform active:scale-95"
                 >
-                  <Camera size={22} strokeWidth={2.5} />
+                  <Camera size={20} strokeWidth={2.5} />
                 </button>
               )}
             </div>
@@ -681,33 +681,33 @@ export default function ChatPage() {
               onKeyDown={handleKeyDown}
               placeholder="Message..."
               rows={1}
-              className="resize-none flex-1 bg-transparent border-none outline-none text-[15px] px-2 py-2.5 text-white placeholder-[#a1a1aa]"
-              style={{ minHeight: 44, maxHeight: 120, lineHeight: "1.4" }}
+              className="resize-none flex-1 bg-transparent border-none outline-none text-[15px] px-1 py-1.5 text-white placeholder-[#a1a1aa]"
+              style={{ minHeight: 36, maxHeight: 120, lineHeight: "1.4" }}
             />
 
             {/* RIGHT ACTION BUTTONS */}
-            <div className="flex items-center flex-shrink-0 mb-0.5">
+            <div className="flex items-center flex-shrink-0 pb-0.5">
               {input.trim() ? (
                 <button
                   onClick={() => sendMessage()}
                   disabled={!input.trim()}
-                  className="w-10 h-10 rounded-full flex items-center justify-center bg-[#8b5cf6] text-white transition-transform active:scale-95 mr-0.5"
+                  className="w-8 h-8 rounded-full flex items-center justify-center bg-[#8b5cf6] text-white transition-transform active:scale-95 mr-1"
                 >
-                  <Send size={18} strokeWidth={2.5} className="ml-1 mt-0.5" />
+                  <Send size={16} strokeWidth={2.5} className="ml-0.5" />
                 </button>
               ) : (
-                <div className="flex items-center gap-3.5 text-white mr-3">
+                <div className="flex items-center gap-3.5 text-white mr-2">
                   <button title="Voice Message" className="transition-transform active:scale-95">
-                    <Mic size={24} strokeWidth={2} />
+                    <Mic size={22} strokeWidth={2} />
                   </button>
                   <button onClick={() => fileInputRef.current?.click()} title="Gallery" className="transition-transform active:scale-95">
-                    <Image size={24} strokeWidth={2} />
+                    <Image size={22} strokeWidth={2} />
                   </button>
                   <button onClick={() => setShowEmoji(!showEmoji)} title="Stickers" className="transition-transform active:scale-95">
-                    <Smile size={24} strokeWidth={2} style={{ color: showEmoji ? "#8b5cf6" : "white" }} />
+                    <Smile size={22} strokeWidth={2} style={{ color: showEmoji ? "#8b5cf6" : "white" }} />
                   </button>
                   <button title="More" className="transition-transform active:scale-95">
-                    <PlusCircle size={24} strokeWidth={2} />
+                    <PlusCircle size={22} strokeWidth={2} />
                   </button>
                 </div>
               )}

@@ -29,8 +29,9 @@ export default function SignupPage() {
       });
       const json = await res.json();
       if (!res.ok) { toast.error(json.error); return; }
-      toast.success("Account created! Check your email for a verification code.");
-      router.push(`/verify-otp?email=${encodeURIComponent(data.email)}`);
+      toast.success("Account created successfully!");
+      // Full navigation so the browser commits the HttpOnly cookie before middleware runs
+      window.location.href = "/dashboard";
     } catch {
       toast.error("Something went wrong. Please try again.");
     } finally {

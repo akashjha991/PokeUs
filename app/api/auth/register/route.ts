@@ -23,14 +23,10 @@ export async function POST(request: NextRequest) {
     }
 
     const hashedPassword = await bcrypt.hash(password, 12);
-    const otp = generateOTP();
-    const otpExpiry = getOTPExpiry();
 
     const user = await prisma.user.create({
-      data: { name, email, password: hashedPassword, otpCode: otp, otpExpiry },
+      data: { name, email, password: hashedPassword, isVerified: true },
     });
-
-    await sendOTPEmail(email, name, otp, "verify");
 
     const accessToken = signAccessToken({ userId: user.id, email: user.email });
     const refreshToken = signRefreshToken({ userId: user.id, email: user.email });
@@ -41,9 +37,9 @@ export async function POST(request: NextRequest) {
     });
 
     const response = apiSuccess({
-      message: "Account created! Please verify your email.",
+      message: "Account created successfully!",
       email,
-      requiresVerification: true,
+      requiresVerification: false,
     }, 201);
 
     response.headers.set(

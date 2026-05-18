@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import prisma from "@/backend/lib/db";
-import { generateOTP, getOTPExpiry } from "@/backend/lib/auth";
-import { sendOTPEmail } from "@/backend/lib/email";
+import { signAccessToken, signRefreshToken } from "@/backend/lib/auth";
 import { loginSchema } from "@/backend/validations";
 import { apiError } from "@/backend/lib/utils";
 
@@ -17,7 +16,13 @@ export async function POST(request: NextRequest) {
 
     const { email, password } = parsed.data;
 
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await prisma.user.findUnique({
+      where: { email },
+      include: {
+        coupleAsUser1: { include: { user1: true, user2: true }, take: 1 },
+        coupleAsUser2: { include: { user1: true, user2: true }, take: 1 },
+      },
+    });
 
     if (!user) {
       return apiError("Invalid email or password", 401);
@@ -28,22 +33,34 @@ export async function POST(request: NextRequest) {
       return apiError("Invalid email or password", 401);
     }
 
-    // Generate a fresh OTP for login verification
-    const otp = generateOTP();
-    const otpExpiry = getOTPExpiry();
+    const couple = user.coupleAsUser1[0] || user.coupleAsUser2[0] || null;
+    const payload = { userId: user.id, email: user.email, coupleId: couple?.id };
+
+    const accessToken = signAccessToken(payload);
+    const refreshToken = signRefreshToken(payload);
 
     await prisma.user.update({
       where: { id: user.id },
-      data: { otpCode: otp, otpExpiry },
+      data: { refreshToken, lastActiveAt: new Date() },
     });
 
-    await sendOTPEmail(email, user.name, otp, "login");
+    const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
 
-    return NextResponse.json({
-      requiresOtp: true,
-      email,
-      message: "A verification code has been sent to your email.",
+    // Use NextResponse.json() — unlike Response.json(), its headers are mutable
+    // so Set-Cookie headers are actually sent to the browser.
+    const response = NextResponse.json({
+      user: {
+        id: user.id, name: user.name, email: user.email, avatar: user.avatar,
+        isVerified: user.isVerified, xpPoints: user.xpPoints, streakDays: user.streakDays,
+      },
+      couple,
+      requiresVerification: !user.isVerified,
     });
+
+    response.headers.append("Set-Cookie", `access_token=${accessToken}; HttpOnly; Path=/; SameSite=Lax; Max-Age=900${secure}`);
+    response.headers.append("Set-Cookie", `refresh_token=${refreshToken}; HttpOnly; Path=/; SameSite=Lax; Max-Age=2592000${secure}`);
+
+    return response;
   } catch (error) {
     console.error("Login error:", error);
     return apiError("Something went wrong. Please try again.", 500);

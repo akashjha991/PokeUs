@@ -8,19 +8,23 @@ export async function sendOTPEmail(
   email: string,
   name: string,
   otp: string,
-  type: "verify" | "reset"
+  type: "verify" | "reset" | "login"
 ): Promise<void> {
   const subject =
     type === "verify"
       ? `${otp} is your ${APP_NAME} verification code`
+      : type === "login"
+      ? `${otp} — Your ${APP_NAME} login code`
       : `${otp} — Reset your ${APP_NAME} password`;
 
   const title =
-    type === "verify" ? "Verify your email" : "Reset your password";
+    type === "verify" ? "Verify your email" : type === "login" ? "Login verification" : "Reset your password";
 
   const description =
     type === "verify"
       ? "Welcome to PokeUs! Enter this code to verify your email and start connecting with your partner."
+      : type === "login"
+      ? "We received a login request for your PokeUs account. Enter this code to securely sign in."
       : "Someone requested a password reset for your PokeUs account. Enter this code to continue.";
 
   const html = `

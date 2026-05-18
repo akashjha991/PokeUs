@@ -1,0 +1,470 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   CSS CUSTOM PROPERTIES — DESIGN TOKENS
+   ============================================================ */
+:root {
+  --font-inter: 'Inter', system-ui, sans-serif;
+  --font-outfit: 'Outfit', system-ui, sans-serif;
+
+  /* Light Mode */
+  --bg: 250 250 255;
+  --bg-secondary: 245 243 255;
+  --surface: 255 255 255;
+  --surface-muted: 248 246 255;
+  --surface-subtle: 243 241 255;
+  --border: 230 225 255;
+  --text: 15 10 40;
+  --text-muted: 100 90 140;
+  --text-subtle: 160 150 190;
+
+  --brand: 217 70 239;
+  --brand-secondary: 225 29 72;
+  --brand-soft: rgba(217, 70, 239, 0.12);
+
+  --radius-app: 1.5rem;
+  --nav-height: 70px;
+  --header-height: 60px;
+}
+
+.dark {
+  --bg: 8 6 20;
+  --bg-secondary: 13 10 30;
+  --surface: 18 14 38;
+  --surface-muted: 24 18 50;
+  --surface-subtle: 30 23 60;
+  --border: 45 35 80;
+  --text: 245 240 255;
+  --text-muted: 180 165 210;
+  --text-subtle: 120 105 150;
+
+  --brand: 217 70 239;
+  --brand-secondary: 251 113 133;
+  --brand-soft: rgba(217, 70, 239, 0.15);
+}
+
+/* Theme overrides */
+.theme-ocean {
+  --brand: 14 165 233; /* sky-500 */
+  --brand-secondary: 59 130 246; /* blue-500 */
+  --brand-soft: rgba(14, 165, 233, 0.15);
+}
+
+.theme-emerald {
+  --brand: 16 185 129; /* emerald-500 */
+  --brand-secondary: 20 184 166; /* teal-500 */
+  --brand-soft: rgba(16, 185, 129, 0.15);
+}
+
+.theme-sunset {
+  --brand: 249 115 22; /* orange-500 */
+  --brand-secondary: 239 68 68; /* red-500 */
+  --brand-soft: rgba(249, 115, 22, 0.15);
+}
+
+/* ============================================================
+   BASE RESET & DEFAULTS
+   ============================================================ */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-tap-highlight-color: transparent;
+  text-size-adjust: 100%;
+}
+
+body {
+  font-family: var(--font-inter);
+  background-color: rgb(var(--bg));
+  color: rgb(var(--text));
+  line-height: 1.6;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ============================================================
+   GLASSMORPHISM UTILITIES
+   ============================================================ */
+.glass {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1.5rem;
+}
+
+.glass-dark {
+  background: rgba(8, 6, 20, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.light .glass {
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(217, 70, 239, 0.15);
+}
+
+/* ============================================================
+   GRADIENT TEXT
+   ============================================================ */
+.gradient-text {
+  background: linear-gradient(135deg, #d946ef 0%, #e11d48 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gradient-text-soft {
+  background: linear-gradient(135deg, #e879f9 0%, #fb7185 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ============================================================
+   BRAND BUTTON
+   ============================================================ */
+.btn-brand {
+  background: linear-gradient(135deg, #d946ef 0%, #e11d48 100%);
+  color: white;
+  border: none;
+  border-radius: 9999px;
+  padding: 0.75rem 1.75rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  box-shadow: 0 4px 20px rgba(217, 70, 239, 0.35);
+  position: relative;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.btn-brand::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 100%);
+  opacity: 0;
+  transition: opacity 0.25s;
+}
+
+.btn-brand:hover::before { opacity: 1; }
+.btn-brand:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(217, 70, 239, 0.5); }
+.btn-brand:active { transform: translateY(0px); }
+
+.btn-ghost {
+  background: transparent;
+  color: rgb(var(--text));
+  border: 1px solid rgb(var(--border));
+  border-radius: 9999px;
+  padding: 0.75rem 1.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+.btn-ghost:hover {
+  background: rgb(var(--surface-muted));
+  border-color: rgba(217, 70, 239, 0.4);
+  color: rgb(217, 70, 239);
+}
+
+/* ============================================================
+   SCROLLBAR STYLING
+   ============================================================ */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(217, 70, 239, 0.3);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(217, 70, 239, 0.6); }
+
+/* ============================================================
+   SHIMMER SKELETON
+   ============================================================ */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    rgb(var(--surface-muted)) 25%,
+    rgb(var(--surface-subtle)) 50%,
+    rgb(var(--surface-muted)) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 0.5rem;
+}
+
+/* ============================================================
+   CARD STYLES
+   ============================================================ */
+.card {
+  background: rgb(var(--surface));
+  border: 1px solid rgb(var(--border));
+  border-radius: var(--radius-app);
+  transition: all 0.2s ease;
+}
+
+.card:hover {
+  border-color: rgba(217, 70, 239, 0.3);
+  box-shadow: 0 8px 32px rgba(217, 70, 239, 0.1);
+}
+
+/* ============================================================
+   MOBILE APP LAYOUT
+   ============================================================ */
+.app-shell {
+  max-width: 500px;
+  margin: 0 auto;
+  min-height: 100vh;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (min-width: 768px) {
+  .app-shell {
+    max-width: 100%;
+  }
+}
+
+/* Bottom Nav */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 500px;
+  height: var(--nav-height);
+  background: rgb(var(--surface));
+  border-top: 1px solid rgb(var(--border));
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 0 0.5rem;
+  z-index: 50;
+  backdrop-filter: blur(20px);
+}
+
+@media (min-width: 768px) {
+  .bottom-nav {
+    max-width: 100%;
+  }
+}
+
+.nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  cursor: pointer;
+  padding: 0.5rem 0.75rem;
+  border-radius: 1rem;
+  transition: all 0.2s ease;
+  min-width: 52px;
+  color: rgb(var(--text-subtle));
+}
+
+.nav-item.active {
+  color: rgb(217, 70, 239);
+  background: rgba(217, 70, 239, 0.1);
+}
+
+.nav-item:hover:not(.active) {
+  background: rgb(var(--surface-muted));
+  color: rgb(var(--text-muted));
+}
+
+.nav-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* ============================================================
+   INPUT STYLES
+   ============================================================ */
+.input-field {
+  width: 100%;
+  background: rgb(var(--surface-muted));
+  border: 1.5px solid rgb(var(--border));
+  border-radius: 1rem;
+  padding: 0.85rem 1.1rem;
+  color: rgb(var(--text));
+  font-size: 0.95rem;
+  font-family: var(--font-inter);
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.input-field::placeholder {
+  color: rgb(var(--text-subtle));
+}
+
+.input-field:focus {
+  border-color: rgb(var(--brand));
+  box-shadow: 0 0 0 3px rgba(217, 70, 239, 0.15);
+  background: rgb(var(--surface));
+}
+
+/* ============================================================
+   CHAT BUBBLES
+   ============================================================ */
+.bubble-out {
+  background: linear-gradient(135deg, rgb(var(--brand)), rgb(var(--brand-secondary)));
+  color: white;
+  border-radius: 1.5rem 1.5rem 0.25rem 1.5rem;
+  padding: 0.65rem 1rem;
+  word-break: break-word;
+}
+
+.bubble-in {
+  background: rgb(var(--surface-muted));
+  color: rgb(var(--text));
+  border-radius: 1.5rem 1.5rem 1.5rem 0.25rem;
+  padding: 0.65rem 1rem;
+  word-break: break-word;
+  border: 1px solid rgb(var(--border));
+}
+
+/* ============================================================
+   PAGE TRANSITIONS
+   ============================================================ */
+.page-enter {
+  opacity: 0;
+  transform: translateY(16px);
+}
+
+.page-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ============================================================
+   MOOD TRACKER
+   ============================================================ */
+.mood-emoji {
+  font-size: 2.5rem;
+  width: 64px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 2px solid transparent;
+  background: rgb(var(--surface-muted));
+}
+
+.mood-emoji.selected {
+  border-color: rgb(var(--brand));
+  background: rgba(217, 70, 239, 0.12);
+  transform: scale(1.2);
+  box-shadow: 0 4px 20px rgba(217, 70, 239, 0.3);
+}
+
+.mood-emoji:hover:not(.selected) {
+  transform: scale(1.1);
+  background: rgb(var(--surface-subtle));
+}
+
+/* ============================================================
+   XP BAR
+   ============================================================ */
+.xp-bar-track {
+  width: 100%;
+  height: 8px;
+  background: rgb(var(--surface-muted));
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.xp-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #d946ef, #e11d48);
+  border-radius: 9999px;
+  transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+
+.xp-bar-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -200%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+  animation: shimmer 2s infinite;
+}
+
+/* ============================================================
+   TIMELINE
+   ============================================================ */
+.timeline-line {
+  position: absolute;
+  left: 24px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: linear-gradient(to bottom, rgba(217,70,239,0.5), rgba(225,29,72,0.2), transparent);
+}
+
+/* ============================================================
+   LANDING HERO GLOW
+   ============================================================ */
+.hero-glow {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+/* ============================================================
+   BADGE PILL
+   ============================================================ */
+.badge-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: rgba(217, 70, 239, 0.12);
+  color: rgb(217, 70, 239);
+  border: 1px solid rgba(217, 70, 239, 0.25);
+}
+
+/* ============================================================
+   RESPONSIVE UTILITIES
+   ============================================================ */
+@media (max-width: 768px) {
+  .hide-mobile { display: none !important; }
+}
+
+@media (min-width: 769px) {
+  .hide-desktop { display: none !important; }
+}

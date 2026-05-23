@@ -54,27 +54,12 @@ export default function ChatPage() {
   const [showPartnerModal, setShowPartnerModal] = useState(false);
   const [isFetchingProfile, setIsFetchingProfile] = useState(false);
   const [showE2EEMenu, setShowE2EEMenu] = useState(false);
-  const [activeMessageCIDs, setActiveMessageCIDs] = useState<{ id: string, text: string, cid: string }[]>([]);
-  
   const bottomRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
-  async function openE2EEMenu() {
-    if (!couple) return;
-    const lastMessages = messages.filter(m => m.type === "TEXT" || m.type === "STICKER").slice(-5);
-    const cids = await Promise.all(
-      lastMessages.map(async (msg) => {
-        const cidHex = await generateCID(msg.id, msg.senderId, msg.content);
-        return {
-          id: msg.id,
-          text: msg.content.length > 28 ? msg.content.substring(0, 28) + "..." : msg.content,
-          cid: cidHex.substring(0, 24) + "...",
-        };
-      })
-    );
-    setActiveMessageCIDs(cids);
+  function openE2EEMenu() {
     setShowE2EEMenu(true);
   }
 
@@ -1033,43 +1018,7 @@ export default function ChatPage() {
                   </p>
                 </div>
 
-                <div className="flex flex-col gap-2.5 mt-2">
-                  <h4 className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "rgb(var(--text-muted))" }}>
-                    Active Message Content IDs (CIDs)
-                  </h4>
-                  {activeMessageCIDs.length > 0 ? (
-                    <div className="flex flex-col gap-2 max-h-[220px] overflow-y-auto pr-1">
-                      {activeMessageCIDs.map((item) => (
-                        <div 
-                          key={item.id}
-                          className="flex flex-col p-2.5 rounded-xl border bg-zinc-850/20 gap-1"
-                          style={{ borderColor: "rgb(var(--border))" }}
-                        >
-                          <div className="flex justify-between items-center gap-2">
-                            <span className="text-[10px] text-zinc-400 italic truncate flex-1 font-mono">
-                              "{item.text}"
-                            </span>
-                            <span className="text-[9px] bg-emerald-500/10 text-emerald-400 px-1.5 py-0.5 rounded font-bold uppercase">
-                              Verified ✓
-                            </span>
-                          </div>
-                          <div className="text-[10px] font-mono text-zinc-500 flex items-center gap-1">
-                            <span className="text-emerald-500/60">CID:</span>
-                            <span className="select-all cursor-pointer hover:text-emerald-400 transition-colors">
-                              {item.cid}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="p-4 text-center rounded-2xl border border-dashed bg-zinc-800/10" style={{ borderColor: "rgb(var(--border))" }}>
-                      <p className="text-xs" style={{ color: "rgb(var(--text-muted))" }}>
-                        Send some messages first to generate content signatures. 🛡️
-                      </p>
-                    </div>
-                  )}
-                </div>
+
 
                 <div className="p-3 bg-emerald-500/5 rounded-2xl border border-emerald-500/10 text-[10px] leading-relaxed text-center text-zinc-400 mt-1">
                   💡 <strong>Cryptographic Audit:</strong> Matching CIDs on both devices confirm the channel's cryptographic integrity.

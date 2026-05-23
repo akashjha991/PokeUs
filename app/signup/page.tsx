@@ -38,7 +38,8 @@ export default function SignupPage() {
     setSuccess(false);
     
     try {
-      const res = await fetch('http://localhost:5000/api/auth/signup', {
+      // Use the existing Next.js API route (Prisma + PostgreSQL)
+      const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -46,12 +47,13 @@ export default function SignupPage() {
           email: data.email,
           password: data.password,
         }),
+        credentials: 'include',
       });
 
       const result = await res.json();
 
       if (!res.ok) {
-        throw new Error(result.message || 'Signup failed');
+        throw new Error(result.error || result.message || 'Signup failed');
       }
 
       setSuccess(true);

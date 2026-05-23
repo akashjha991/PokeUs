@@ -34,23 +34,29 @@ export default function LoginPage() {
   const onSubmit = async (data: LoginFormValues) => {
     setServerError('');
     try {
-      // Proxy through Next.js or direct to Express API depending on setup
-      // We assume Express is running on port 5000 and CORS is configured
-      const res = await fetch('http://localhost:5000/api/auth/login', {
+      // Use the existing Next.js API route (Prisma + PostgreSQL)
+      const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(data),
+        credentials: 'include', // include cookies for refresh token
       });
 
       const result = await res.json();
 
       if (!res.ok) {
-        throw new Error(result.message || 'Login failed');
+        throw new Error(result.error || result.message || 'Login failed');
       }
 
-      setAuth(result.user, result.accessToken);
+      // Existing API returns { user, couple, requiresVerification }
+      if (result.requiresVerification) {
+        router.push('/verify-otp');
+        return;
+      }
+
+      setAuth(result.user, ''); // access token is in httpOnly cookie
       router.push('/dashboard');
     } catch (err: any) {
       setServerError(err.message);

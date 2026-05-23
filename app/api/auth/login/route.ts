@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import prisma from "@/backend/lib/db";
-import { signAccessToken, signRefreshToken } from "@/backend/lib/auth";
+import { signAccessToken, signRefreshToken, generateOTP, getOTPExpiry } from "@/backend/lib/auth";
+import { sendOTPEmail } from "@/backend/lib/email";
 import { loginSchema } from "@/backend/validations";
 import { apiError } from "@/backend/lib/utils";
 
@@ -33,6 +34,15 @@ export async function POST(request: NextRequest) {
       return apiError("Invalid email or password", 401);
     }
 
+    // Block login if email not verified — resend OTP and redirect to verify page
+    if (!user.isVerified) {
+      const otp = generateOTP();
+      const otpExpiry = getOTPExpiry();
+      await prisma.user.update({ where: { id: user.id }, data: { otpCode: otp, otpExpiry } });
+      await sendOTPEmail(user.email, user.name, otp, "verify");
+      return NextResponse.json({ requiresVerification: true, email: user.email }, { status: 200 });
+    }
+
     const couple = user.coupleAsUser1[0] || user.coupleAsUser2[0] || null;
     const payload = { userId: user.id, email: user.email, coupleId: couple?.id };
 
@@ -46,15 +56,13 @@ export async function POST(request: NextRequest) {
 
     const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
 
-    // Use NextResponse.json() — unlike Response.json(), its headers are mutable
-    // so Set-Cookie headers are actually sent to the browser.
     const response = NextResponse.json({
       user: {
         id: user.id, name: user.name, email: user.email, avatar: user.avatar,
         isVerified: user.isVerified, xpPoints: user.xpPoints, streakDays: user.streakDays,
       },
       couple,
-      requiresVerification: !user.isVerified,
+      requiresVerification: false,
     });
 
     response.headers.append("Set-Cookie", `access_token=${accessToken}; HttpOnly; Path=/; SameSite=Lax; Max-Age=900${secure}`);

@@ -7,6 +7,7 @@ import * as z from 'zod';
 import { motion } from 'framer-motion';
 import { Loader2, Mail, Lock, User as UserIcon, AlertCircle, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 // Zod Schema
 const signupSchema = z.object({
@@ -22,6 +23,7 @@ const signupSchema = z.object({
 type SignupFormValues = z.infer<typeof signupSchema>;
 
 export default function SignupPage() {
+  const router = useRouter();
   const [serverError, setServerError] = useState('');
   const [success, setSuccess] = useState(false);
   
@@ -54,6 +56,12 @@ export default function SignupPage() {
 
       if (!res.ok) {
         throw new Error(result.error || result.message || 'Signup failed');
+      }
+
+      // Redirect to OTP verification with email pre-filled
+      if (result.data?.requiresVerification) {
+        router.push(`/verify-otp?email=${encodeURIComponent(data.email)}`);
+        return;
       }
 
       setSuccess(true);

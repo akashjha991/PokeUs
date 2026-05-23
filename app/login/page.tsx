@@ -50,9 +50,9 @@ export default function LoginPage() {
         throw new Error(result.error || result.message || 'Login failed');
       }
 
-      // Existing API returns { user, couple, requiresVerification }
+      // API returns { requiresVerification, email } for unverified users
       if (result.requiresVerification) {
-        router.push('/verify-otp');
+        router.push(`/verify-otp?email=${encodeURIComponent(result.email || data.email)}`);
         return;
       }
 

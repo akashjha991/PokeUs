@@ -61,10 +61,13 @@ export function getInitials(name: string): string {
 
 export function generateInviteCode(): string {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-  return Array.from({ length: 8 }, () =>
-    chars[Math.floor(Math.random() * chars.length)]
-  ).join("");
+  const crypto = require("crypto");
+  return Array.from({ length: 8 }, () => {
+    const index = crypto.randomInt(0, chars.length);
+    return chars[index];
+  }).join("");
 }
+
 
 export function getXPLevel(xp: number): {
   level: number;

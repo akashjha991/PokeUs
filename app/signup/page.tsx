@@ -58,9 +58,9 @@ export default function SignupPage() {
         throw new Error(result.error || result.message || 'Signup failed');
       }
 
-      // Redirect to OTP verification with email pre-filled
+      // Redirect to email verification info page
       if (result.data?.requiresVerification) {
-        router.push(`/verify-otp?email=${encodeURIComponent(data.email)}`);
+        router.push(`/verify-email`);
         return;
       }
 

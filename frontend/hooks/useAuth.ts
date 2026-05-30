@@ -1,32 +1,47 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useAuthStore } from "@/frontend/store";
+import { createSupabaseBrowserClient } from "@/frontend/lib/supabase";
 
 /**
- * useAuth — hook to fetch the current user and couple on mount.
+ * useAuth — initializes auth state from Supabase session on mount.
+ * Listens to auth state changes for cross-tab logout / token refresh.
  * Call this once in your dashboard/app layout.
  */
 export function useAuth() {
-  const { user, couple, setUser, setCouple, setLoading } = useAuthStore();
+  const { user, couple, checkAuth, logout, setLoading } = useAuthStore();
+  const initialized = useRef(false);
 
   useEffect(() => {
-    async function fetchMe() {
-      setLoading(true);
-      try {
-        const res = await fetch("/api/auth/me");
-        if (!res.ok) return;
-        const data = await res.json();
-        setUser(data.user);
-        setCouple(data.couple);
-      } catch {
-        // Not authenticated — stays null
-      } finally {
-        setLoading(false);
+    if (initialized.current) return;
+    initialized.current = true;
+
+    const supabase = createSupabaseBrowserClient();
+
+    // Initial auth check (loads user from server session)
+    checkAuth();
+
+    // Listen for auth state changes (login, logout, token refresh, cross-tab)
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === "SIGNED_OUT" || !session) {
+        // Session expired or user logged out in another tab
+        useAuthStore.setState({ user: null, couple: null, isLoading: false });
+      } else if (
+        event === "SIGNED_IN" ||
+        event === "TOKEN_REFRESHED" ||
+        event === "USER_UPDATED"
+      ) {
+        // Re-fetch user data from our API to get Prisma user + couple
+        await checkAuth();
       }
-    }
-    if (!user) fetchMe();
-    else setLoading(false);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   return { user, couple };

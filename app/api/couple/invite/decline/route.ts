@@ -1,26 +1,19 @@
 import { NextRequest } from "next/server";
 import prisma from "@/backend/lib/db";
+import { requireAuth } from "@/backend/lib/requireAuth";
 import { apiError, apiSuccess } from "@/backend/lib/utils";
 
 export async function POST(request: NextRequest) {
-  try {
-    const token = request.cookies.get("access_token")?.value;
-    if (!token) return apiError("Unauthorized", 401);
-    
-    let payload;
-    try {
-      const { jwtVerify } = await import("jose");
-      const secret = new TextEncoder().encode(process.env.JWT_SECRET);
-      const { payload: decoded } = await jwtVerify(token, secret);
-      payload = decoded;
-    } catch {
-      return apiError("Unauthorized", 401);
-    }
+  const auth = await requireAuth(request);
+  if (auth.error) return auth.error;
 
+  const { prismaUserId } = auth.context;
+
+  try {
     const { inviteId } = await request.json();
     if (!inviteId) return apiError("Invite ID is required", 400);
 
-    const user = await prisma.user.findUnique({ where: { id: payload.userId as string } });
+    const user = await prisma.user.findUnique({ where: { id: prismaUserId } });
     if (!user) return apiError("User not found", 404);
 
     const invite = await prisma.coupleInvite.findUnique({

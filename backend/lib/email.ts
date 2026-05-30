@@ -1,8 +1,11 @@
 import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
-const FROM = process.env.RESEND_FROM_EMAIL || "noreply@pokeus.app";
+const FROM = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
 const APP_NAME = "PokeUs";
+// Dev override: Resend sandbox only delivers to the account owner's email.
+// Set RESEND_TEST_EMAIL in .env to your Resend account email to receive OTPs locally.
+const TEST_EMAIL = process.env.RESEND_TEST_EMAIL;
 
 export async function sendOTPEmail(
   email: string,
@@ -65,7 +68,17 @@ export async function sendOTPEmail(
     </html>
   `;
 
-  await resend.emails.send({ from: FROM, to: email, subject, html });
+  // Always print OTP to terminal — useful for local development
+  console.log(`\n🔐 [OTP] ${type.toUpperCase()} code for ${email}: \x1b[33m${otp}\x1b[0m\n`);
+
+  // Resend sandbox mode: only delivers to the account owner's email.
+  // Use RESEND_TEST_EMAIL to redirect all OTP emails in development.
+  const recipient = (TEST_EMAIL && TEST_EMAIL !== email) ? TEST_EMAIL : email;
+  if (TEST_EMAIL && TEST_EMAIL !== email) {
+    console.log(`📧 [EMAIL] Sandbox mode — redirecting to ${TEST_EMAIL} (intended: ${email})`);
+  }
+
+  await resend.emails.send({ from: FROM, to: recipient, subject, html });
 }
 
 export async function sendInviteEmail(

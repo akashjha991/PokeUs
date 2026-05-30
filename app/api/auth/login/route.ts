@@ -1,12 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
-import bcrypt from "bcryptjs";
 import prisma from "@/backend/lib/db";
-import { signAccessToken, signRefreshToken, generateOTP, getOTPExpiry } from "@/backend/lib/auth";
-import { sendOTPEmail } from "@/backend/lib/email";
+import { supabaseAdmin } from "@/backend/lib/supabase";
+import { createSupabaseServerClient } from "@/backend/lib/supabase-server";
 import { loginSchema } from "@/backend/validations";
 import { apiError } from "@/backend/lib/utils";
+import { checkRateLimit, getClientIp } from "@/backend/lib/rateLimit";
 
 export async function POST(request: NextRequest) {
+  // Rate Limiting — 5 requests per 60s per IP
+  const ip = getClientIp(request);
+  const rateLimit = checkRateLimit(`${ip}:login`, { limit: 5, windowSeconds: 60 });
+  if (!rateLimit.allowed) {
+    return apiError("Too many login attempts. Please try again in a minute.", 429);
+  }
+
   try {
     const body = await request.json();
     const parsed = loginSchema.safeParse(body);
@@ -17,58 +24,125 @@ export async function POST(request: NextRequest) {
 
     const { email, password } = parsed.data;
 
-    const user = await prisma.user.findUnique({
-      where: { email },
+    // Sign in via Supabase Auth
+    const { data: authData, error: authError } =
+      await supabaseAdmin.auth.signInWithPassword({ email, password });
+
+    if (authError || !authData?.user) {
+      // Surface friendly messages
+      if (
+        authError?.message.toLowerCase().includes("email not confirmed") ||
+        authError?.message.toLowerCase().includes("not confirmed")
+      ) {
+        return NextResponse.json(
+          { requiresVerification: true, email },
+          { status: 200 }
+        );
+      }
+      return apiError("Invalid email or password", 401);
+    }
+
+    const supabaseUser = authData.user;
+
+    // Block login if email not verified
+    if (!supabaseUser.email_confirmed_at) {
+      return NextResponse.json(
+        { requiresVerification: true, email },
+        { status: 200 }
+      );
+    }
+
+    // Fetch or auto-create the linked Prisma user
+    let prismaUser = await prisma.user.findUnique({
+      where: { supabaseId: supabaseUser.id },
+    });
+
+    if (!prismaUser) {
+      // Fallback: look up by email (handles legacy accounts)
+      prismaUser = await prisma.user.findUnique({ where: { email } });
+      if (prismaUser) {
+        // Link existing legacy user to Supabase
+        prismaUser = await prisma.user.update({
+          where: { id: prismaUser.id },
+          data: {
+            supabaseId: supabaseUser.id,
+            isVerified: true,
+            lastActiveAt: new Date(),
+          },
+        });
+      } else {
+        // Auto-create Prisma user (shouldn't happen in normal flow)
+        const name =
+          supabaseUser.user_metadata?.full_name ||
+          email.split("@")[0];
+        prismaUser = await prisma.user.create({
+          data: {
+            supabaseId: supabaseUser.id,
+            name,
+            email,
+            isVerified: true,
+          },
+        });
+      }
+    } else {
+      // Update verification status and last active
+      prismaUser = await prisma.user.update({
+        where: { id: prismaUser.id },
+        data: { isVerified: true, lastActiveAt: new Date() },
+      });
+    }
+
+    // Fetch couple data
+    const couple = await prisma.couple.findFirst({
+      where: {
+        OR: [{ user1Id: prismaUser.id }, { user2Id: prismaUser.id }],
+      },
       include: {
-        coupleAsUser1: { include: { user1: true, user2: true }, take: 1 },
-        coupleAsUser2: { include: { user1: true, user2: true }, take: 1 },
+        user1: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            avatar: true,
+            xpPoints: true,
+            streakDays: true,
+          },
+        },
+        user2: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            avatar: true,
+            xpPoints: true,
+            streakDays: true,
+          },
+        },
       },
     });
 
-    if (!user) {
-      return apiError("Invalid email or password", 401);
-    }
-
-    const passwordMatch = await bcrypt.compare(password, user.password);
-    if (!passwordMatch) {
-      return apiError("Invalid email or password", 401);
-    }
-
-    // Block login if email not verified — resend OTP and redirect to verify page
-    if (!user.isVerified) {
-      const otp = generateOTP();
-      const otpExpiry = getOTPExpiry();
-      await prisma.user.update({ where: { id: user.id }, data: { otpCode: otp, otpExpiry } });
-      await sendOTPEmail(user.email, user.name, otp, "verify");
-      return NextResponse.json({ requiresVerification: true, email: user.email }, { status: 200 });
-    }
-
-    const couple = user.coupleAsUser1[0] || user.coupleAsUser2[0] || null;
-    const payload = { userId: user.id, email: user.email, coupleId: couple?.id };
-
-    const accessToken = signAccessToken(payload);
-    const refreshToken = signRefreshToken(payload);
-
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { refreshToken, lastActiveAt: new Date() },
+    // Set Supabase session cookies via @supabase/ssr
+    const supabase = await createSupabaseServerClient();
+    await supabase.auth.setSession({
+      access_token: authData.session!.access_token,
+      refresh_token: authData.session!.refresh_token,
     });
 
-    const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
-
-    const response = NextResponse.json({
+    return NextResponse.json({
       user: {
-        id: user.id, name: user.name, email: user.email, avatar: user.avatar,
-        isVerified: user.isVerified, xpPoints: user.xpPoints, streakDays: user.streakDays,
+        id: prismaUser.id,
+        supabaseId: prismaUser.supabaseId,
+        name: prismaUser.name,
+        email: prismaUser.email,
+        avatar: prismaUser.avatar,
+        role: prismaUser.role,
+        isVerified: prismaUser.isVerified,
+        xpPoints: prismaUser.xpPoints,
+        streakDays: prismaUser.streakDays,
       },
       couple,
       requiresVerification: false,
     });
-
-    response.headers.append("Set-Cookie", `access_token=${accessToken}; HttpOnly; Path=/; SameSite=Lax; Max-Age=900${secure}`);
-    response.headers.append("Set-Cookie", `refresh_token=${refreshToken}; HttpOnly; Path=/; SameSite=Lax; Max-Age=2592000${secure}`);
-
-    return response;
   } catch (error) {
     console.error("Login error:", error);
     return apiError("Something went wrong. Please try again.", 500);

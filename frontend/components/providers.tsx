@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
 import { useEffect, useState } from "react";
 import { useUIStore } from "@/frontend/store";
+import { useAuth } from "@/frontend/hooks/useAuth";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -18,14 +19,26 @@ function ColorThemeWrapper({ children }: { children: React.ReactNode }) {
   const colorTheme = useUIStore((state) => state.colorTheme);
 
   useEffect(() => {
-    // Remove all previous theme classes
-    document.body.classList.remove("theme-ocean", "theme-emerald", "theme-sunset", "theme-purple");
-    // Add current theme class if not default purple
+    document.body.classList.remove(
+      "theme-ocean",
+      "theme-emerald",
+      "theme-sunset",
+      "theme-purple"
+    );
     if (colorTheme !== "purple") {
       document.body.classList.add(`theme-${colorTheme}`);
     }
   }, [colorTheme]);
 
+  return <>{children}</>;
+}
+
+/**
+ * AuthInitializer — mounts inside providers to initialize Supabase auth
+ * state and set up the cross-tab session listener.
+ */
+function AuthInitializer({ children }: { children: React.ReactNode }) {
+  useAuth();
   return <>{children}</>;
 }
 
@@ -51,11 +64,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
-        <SocketProvider>
-          <ColorThemeWrapper>
-            {children}
-          </ColorThemeWrapper>
-        </SocketProvider>
+        <AuthInitializer>
+          <SocketProvider>
+            <ColorThemeWrapper>{children}</ColorThemeWrapper>
+          </SocketProvider>
+        </AuthInitializer>
       </ThemeProvider>
     </QueryClientProvider>
   );

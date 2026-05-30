@@ -1,12 +1,18 @@
 import { NextRequest } from "next/server";
-import bcrypt from "bcryptjs";
 import prisma from "@/backend/lib/db";
-import { generateOTP, getOTPExpiry } from "@/backend/lib/auth";
-import { sendOTPEmail } from "@/backend/lib/email";
+import { supabaseAdmin } from "@/backend/lib/supabase";
 import { signupSchema } from "@/backend/validations";
 import { apiError, apiSuccess } from "@/backend/lib/utils";
+import { checkRateLimit, getClientIp } from "@/backend/lib/rateLimit";
 
 export async function POST(request: NextRequest) {
+  // Rate Limiting — 3 requests per 60s per IP
+  const ip = getClientIp(request);
+  const rateLimit = checkRateLimit(`${ip}:register`, { limit: 3, windowSeconds: 60 });
+  if (!rateLimit.allowed) {
+    return apiError("Too many registration attempts. Please try again in a minute.", 429);
+  }
+
   try {
     const body = await request.json();
     const parsed = signupSchema.safeParse(body);
@@ -17,48 +23,62 @@ export async function POST(request: NextRequest) {
 
     const { name, email, password } = parsed.data;
 
+    // Check if Prisma user already exists (may be from old system)
     const existing = await prisma.user.findUnique({ where: { email } });
-    if (existing) {
-      // If user exists but is not verified, resend OTP instead of erroring
-      if (!existing.isVerified) {
-        const otp = generateOTP();
-        const otpExpiry = getOTPExpiry();
-        await prisma.user.update({
-          where: { id: existing.id },
-          data: { otpCode: otp, otpExpiry },
-        });
-        await sendOTPEmail(email, existing.name, otp, "verify");
-        return apiSuccess({ message: "Verification code resent.", email, requiresVerification: true }, 200);
-      }
+    if (existing?.supabaseId) {
       return apiError("An account with this email already exists", 409);
     }
 
-    const hashedPassword = await bcrypt.hash(password, 12);
-
-    // Generate OTP before creating user
-    const otp = generateOTP();
-    const otpExpiry = getOTPExpiry();
-
-    // Create user as UNVERIFIED with OTP
-    await prisma.user.create({
-      data: {
-        name,
+    // Create user in Supabase Auth — sends verification email automatically
+    const { data: authData, error: authError } =
+      await supabaseAdmin.auth.admin.createUser({
         email,
-        password: hashedPassword,
-        isVerified: false,
-        otpCode: otp,
-        otpExpiry,
+        password,
+        email_confirm: false, // Supabase sends a confirmation email
+        user_metadata: { full_name: name },
+      });
+
+    if (authError) {
+      if (authError.message.toLowerCase().includes("already registered")) {
+        return apiError("An account with this email already exists", 409);
+      }
+      console.error("Supabase signup error:", authError);
+      return apiError(authError.message || "Failed to create account", 400);
+    }
+
+    const supabaseUser = authData.user;
+    if (!supabaseUser) {
+      return apiError("Failed to create account. Please try again.", 500);
+    }
+
+    // Create or update Prisma user linked to this Supabase account
+    if (existing) {
+      // Link existing legacy Prisma user to new Supabase account
+      await prisma.user.update({
+        where: { id: existing.id },
+        data: { supabaseId: supabaseUser.id, isVerified: false },
+      });
+    } else {
+      // Create fresh Prisma user
+      await prisma.user.create({
+        data: {
+          supabaseId: supabaseUser.id,
+          name,
+          email,
+          isVerified: false,
+        },
+      });
+    }
+
+    return apiSuccess(
+      {
+        message:
+          "Account created! Please check your email for a verification link.",
+        email,
+        requiresVerification: true,
       },
-    });
-
-    // Send OTP verification email
-    await sendOTPEmail(email, name, otp, "verify");
-
-    return apiSuccess({
-      message: "Account created! Please check your email for the verification code.",
-      email,
-      requiresVerification: true,
-    }, 201);
+      201
+    );
   } catch (error) {
     console.error("Register error:", error);
     return apiError("Something went wrong. Please try again.", 500);

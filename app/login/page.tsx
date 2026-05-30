@@ -1,13 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { motion } from 'framer-motion';
-import { Loader2, Mail, Lock, AlertCircle, ArrowRight } from 'lucide-react';
+import { Loader2, Mail, Lock, AlertCircle, ArrowRight, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthStore } from '../../frontend/store/auth.store';
 
 // Zod Schema
@@ -18,11 +18,25 @@ const loginSchema = z.object({
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const setAuth = useAuthStore((state) => state.setAuth);
   const [serverError, setServerError] = useState('');
-  
+  const [verifiedMessage, setVerifiedMessage] = useState('');
+
+  // Handle Supabase callback params
+  useEffect(() => {
+    const verified = searchParams.get('verified');
+    const error = searchParams.get('error');
+    if (verified === 'true') {
+      setVerifiedMessage('Email verified! You can now sign in.');
+    }
+    if (error) {
+      setServerError(decodeURIComponent(error));
+    }
+  }, [searchParams]);
+
   const {
     register,
     handleSubmit,
@@ -33,15 +47,13 @@ export default function LoginPage() {
 
   const onSubmit = async (data: LoginFormValues) => {
     setServerError('');
+    setVerifiedMessage('');
     try {
-      // Use the existing Next.js API route (Prisma + PostgreSQL)
       const res = await fetch('/api/auth/login', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
-        credentials: 'include', // include cookies for refresh token
+        credentials: 'include',
       });
 
       const result = await res.json();
@@ -50,13 +62,15 @@ export default function LoginPage() {
         throw new Error(result.error || result.message || 'Login failed');
       }
 
-      // API returns { requiresVerification, email } for unverified users
+      // Unverified email — prompt user to check email
       if (result.requiresVerification) {
-        router.push(`/verify-otp?email=${encodeURIComponent(result.email || data.email)}`);
+        setServerError(
+          'Please verify your email before signing in. Check your inbox for a verification link.'
+        );
         return;
       }
 
-      setAuth(result.user, ''); // access token is in httpOnly cookie
+      setAuth(result.user, '');
       router.push('/dashboard');
     } catch (err: any) {
       setServerError(err.message);
@@ -80,6 +94,18 @@ export default function LoginPage() {
             <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">Welcome back</h1>
             <p className="text-zinc-400">Enter your credentials to access your account</p>
           </div>
+
+          {/* Email verified success banner */}
+          {verifiedMessage && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-green-500/10 border border-green-500/50 text-green-400 p-4 rounded-xl mb-6 flex items-center gap-3 text-sm"
+            >
+              <CheckCircle2 size={18} />
+              <p>{verifiedMessage}</p>
+            </motion.div>
+          )}
 
           {serverError && (
             <motion.div
@@ -147,7 +173,6 @@ export default function LoginPage() {
                   <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
                 </>
               )}
-              {/* Button shine effect */}
               <div className="absolute inset-0 -translate-x-full group-hover:animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/40 to-transparent" />
             </button>
           </form>
@@ -161,5 +186,19 @@ export default function LoginPage() {
         </div>
       </motion.div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-zinc-950">
+          <Loader2 className="animate-spin text-pink-500" size={40} />
+        </div>
+      }
+    >
+      <LoginForm />
+    </Suspense>
   );
 }

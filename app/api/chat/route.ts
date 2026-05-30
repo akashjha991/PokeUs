@@ -1,30 +1,20 @@
 import { NextRequest } from "next/server";
 import prisma from "@/backend/lib/db";
+import { requireCouple } from "@/backend/lib/requireAuth";
 import { apiError, apiSuccess } from "@/backend/lib/utils";
+import { messageSchema } from "@/backend/validations";
 
 export async function GET(request: NextRequest) {
+  const auth = await requireCouple(request);
+  if (auth.error) return auth.error;
+
+  const { prismaUserId, coupleId } = auth.context;
+
   try {
-    const token = request.cookies.get("access_token")?.value;
-    if (!token) return apiError("Unauthorized", 401);
-
-    let payload;
-    try {
-      const { jwtVerify } = await import("jose");
-      const secret = new TextEncoder().encode(process.env.JWT_SECRET);
-      const { payload: decoded } = await jwtVerify(token, secret);
-      payload = decoded;
-    } catch {
-      return apiError("Unauthorized", 401);
-    }
-
-    if (!payload.coupleId) {
-      return apiError("Not in a couple", 400);
-    }
-
     const messages = await prisma.message.findMany({
-      where: { coupleId: payload.coupleId as string },
+      where: { coupleId },
       orderBy: { createdAt: "asc" },
-      take: 100, // Fetch the last 100 messages initially
+      take: 100,
     });
 
     return apiSuccess({ messages });
@@ -35,26 +25,34 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireCouple(request);
+  if (auth.error) return auth.error;
+
+  const { prismaUserId, coupleId } = auth.context;
+
   try {
-    const token = request.cookies.get("access_token")?.value;
-    if (!token) return apiError("Unauthorized", 401);
-
-    let payload;
-    try {
-      const { jwtVerify } = await import("jose");
-      const secret = new TextEncoder().encode(process.env.JWT_SECRET);
-      const { payload: decoded } = await jwtVerify(token, secret);
-      payload = decoded;
-    } catch {
-      return apiError("Unauthorized", 401);
-    }
-
-    if (!payload.coupleId) {
-      return apiError("Not in a couple", 400);
-    }
-
     const body = await request.json();
-    const { content, type = "TEXT", replyToId, mediaUrl } = body;
+
+    // Validate message schema — prevents XSS payload storage
+    const parsed = messageSchema.safeParse(body);
+    if (!parsed.success) {
+      return apiError(parsed.error.errors[0].message, 400);
+    }
+
+    const { content, type = "TEXT", replyToId } = parsed.data;
+    const { mediaUrl } = body;
+
+    // Validate mediaUrl is a HTTPS Cloudinary URL if provided
+    if (mediaUrl) {
+      try {
+        const url = new URL(mediaUrl);
+        if (url.protocol !== "https:" || !url.hostname.includes("cloudinary.com")) {
+          return apiError("Invalid media URL", 400);
+        }
+      } catch {
+        return apiError("Invalid media URL", 400);
+      }
+    }
 
     if (!content && !mediaUrl) return apiError("Message content or media is required", 400);
 
@@ -64,77 +62,77 @@ export async function POST(request: NextRequest) {
         type,
         replyToId,
         mediaUrl: mediaUrl || null,
-        senderId: payload.userId as string,
-        coupleId: payload.coupleId as string,
-      }
+        senderId: prismaUserId,
+        coupleId,
+      },
     });
 
-    // Award XP for sending a message and run badges check asynchronously
+    // Award XP + badges asynchronously
     const { awardXP, checkAndAwardBadges } = await import("@/backend/services/gamification");
-    awardXP(payload.userId as string, 5, "Sent a chat message 💬")
-      .then(() => checkAndAwardBadges(payload.userId as string))
+    awardXP(prismaUserId, 5, "Sent a chat message 💬")
+      .then(() => checkAndAwardBadges(prismaUserId))
       .catch((err) => console.error("Chat gamification error:", err));
 
-    // Send asynchronous Push Notifications to the recipient partner
-    prisma.couple.findUnique({
-      where: { id: payload.coupleId as string },
-      include: {
-        user1: { select: { id: true, name: true } },
-        user2: { select: { id: true, name: true } },
-      }
-    }).then(async (couple) => {
-      if (!couple) return;
-
-      const sender = couple.user1.id === payload.userId ? couple.user1 : couple.user2;
-      const recipient = couple.user1.id === payload.userId ? couple.user2 : couple.user1;
-
-      // Find all push subscriptions for the partner
-      const subscriptions = await prisma.pushSubscription.findMany({
-        where: { userId: recipient.id }
-      });
-
-      if (subscriptions.length === 0) return;
-
-      const webpush = require("web-push");
-      webpush.setVapidDetails(
-        "mailto:support@pokeus.dev",
-        process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY as string,
-        process.env.VAPID_PRIVATE_KEY as string
-      );
-
-      const notificationPayload = JSON.stringify({
-        title: `Message from ${sender.name} 💜`,
-        body: type === "IMAGE" ? "📷 Sent a photo" : content,
-        url: "/chat",
-      });
-
-      const pushPromises = subscriptions.map((sub) => {
-        const pushSubscription = {
-          endpoint: sub.endpoint,
-          keys: {
-            p256dh: sub.p256dh,
-            auth: sub.auth,
-          },
-        };
-
-        return webpush.sendNotification(pushSubscription, notificationPayload)
-          .catch((err: any) => {
-            console.error("Failed to send push notification to endpoint:", sub.endpoint, err);
-            // Delete expired or obsolete endpoints automatically
-            if (err.statusCode === 410 || err.statusCode === 404) {
-              return prisma.pushSubscription.delete({
-                where: { id: sub.id }
-              }).catch(() => {});
-            }
-          });
-      });
-
-      await Promise.all(pushPromises);
-    }).catch(err => console.error("Push dispatch error:", err));
+    // Push notifications — async, non-blocking
+    sendPushNotification(coupleId, prismaUserId, content, type).catch((err) =>
+      console.error("Push dispatch error:", err)
+    );
 
     return apiSuccess({ message });
   } catch (error) {
     console.error("Send message error:", error);
     return apiError("Something went wrong", 500);
   }
+}
+
+async function sendPushNotification(
+  coupleId: string,
+  senderId: string,
+  content: string,
+  type: string
+) {
+  const couple = await prisma.couple.findUnique({
+    where: { id: coupleId },
+    include: {
+      user1: { select: { id: true, name: true } },
+      user2: { select: { id: true, name: true } },
+    },
+  });
+  if (!couple) return;
+
+  const sender = couple.user1.id === senderId ? couple.user1 : couple.user2;
+  const recipient = couple.user1.id === senderId ? couple.user2 : couple.user1;
+
+  const subscriptions = await prisma.pushSubscription.findMany({
+    where: { userId: recipient.id },
+  });
+  if (subscriptions.length === 0) return;
+
+  const webpush = require("web-push");
+  webpush.setVapidDetails(
+    "mailto:support@pokeus.dev",
+    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY as string,
+    process.env.VAPID_PRIVATE_KEY as string
+  );
+
+  const notificationPayload = JSON.stringify({
+    title: `Message from ${sender.name} 💜`,
+    body: type === "IMAGE" ? "📷 Sent a photo" : content,
+    url: "/chat",
+  });
+
+  await Promise.all(
+    subscriptions.map((sub) =>
+      webpush
+        .sendNotification(
+          { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+          notificationPayload
+        )
+        .catch((err: any) => {
+          if (err.statusCode === 410 || err.statusCode === 404) {
+            return prisma.pushSubscription.delete({ where: { id: sub.id } }).catch(() => {});
+          }
+        })
+    )
+  );
 }

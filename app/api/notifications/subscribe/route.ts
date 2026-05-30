@@ -1,25 +1,15 @@
 import { NextRequest } from "next/server";
 import prisma from "@/backend/lib/db";
+import { requireAuth } from "@/backend/lib/requireAuth";
 import { apiError, apiSuccess } from "@/backend/lib/utils";
 
 export async function POST(request: NextRequest) {
+  const auth = await requireAuth(request);
+  if (auth.error) return auth.error;
+
+  const { prismaUserId } = auth.context;
+
   try {
-    const token = request.cookies.get("access_token")?.value;
-    if (!token) return apiError("Unauthorized", 401);
-
-    let payload;
-    try {
-      const { jwtVerify } = await import("jose");
-      const secret = new TextEncoder().encode(process.env.JWT_SECRET);
-      const { payload: decoded } = await jwtVerify(token, secret);
-      payload = decoded;
-    } catch {
-      return apiError("Unauthorized", 401);
-    }
-
-    const userId = payload.userId as string;
-    if (!userId) return apiError("Unauthorized", 401);
-
     const body = await request.json();
     const { action, subscription, endpoint } = body;
 
@@ -32,6 +22,7 @@ export async function POST(request: NextRequest) {
       await prisma.pushSubscription.deleteMany({
         where: {
           endpoint: targetEndpoint,
+          userId: prismaUserId, // Ensure the user can only delete their own subscription
         },
       });
 
@@ -44,9 +35,9 @@ export async function POST(request: NextRequest) {
     }
 
     const { endpoint: subEndpoint, keys } = subscription;
-    const { p256dh, auth } = keys;
+    const { p256dh, auth: subAuth } = keys;
 
-    if (!p256dh || !auth) {
+    if (!p256dh || !subAuth) {
       return apiError("Subscription public key and auth token are required", 400);
     }
 
@@ -54,15 +45,15 @@ export async function POST(request: NextRequest) {
     await prisma.pushSubscription.upsert({
       where: { endpoint: subEndpoint },
       update: {
-        userId,
+        userId: prismaUserId,
         p256dh,
-        auth,
+        auth: subAuth,
       },
       create: {
-        userId,
+        userId: prismaUserId,
         endpoint: subEndpoint,
         p256dh,
-        auth,
+        auth: subAuth,
       },
     });
 

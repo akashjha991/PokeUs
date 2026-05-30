@@ -13,7 +13,7 @@ interface AuthState {
   setCouple: (couple: Couple | null) => void;
   setLoading: (loading: boolean) => void;
   checkAuth: () => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -26,19 +26,30 @@ export const useAuthStore = create<AuthState>()(
       setCouple: (couple) => set({ couple }),
       setLoading: (isLoading) => set({ isLoading }),
       checkAuth: async () => {
+        set({ isLoading: true });
         try {
           const res = await fetch("/api/auth/me");
           if (res.ok) {
             const data = await res.json();
-            set({ user: data.user, couple: data.couple });
+            set({ user: data.user, couple: data.couple, isLoading: false });
           } else {
-            set({ user: null, couple: null });
+            set({ user: null, couple: null, isLoading: false });
           }
         } catch (error) {
           console.error("Auth check failed:", error);
+          set({ user: null, couple: null, isLoading: false });
         }
       },
-      logout: () => set({ user: null, couple: null }),
+      logout: async () => {
+        try {
+          // Sign out from Supabase (clears server-side session cookies)
+          await fetch("/api/auth/logout", { method: "POST" });
+        } catch (err) {
+          console.error("Logout error:", err);
+        } finally {
+          set({ user: null, couple: null, isLoading: false });
+        }
+      },
     }),
     {
       name: "pokeus-auth",

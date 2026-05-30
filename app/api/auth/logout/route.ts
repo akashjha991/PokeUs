@@ -1,9 +1,15 @@
 import { NextResponse } from "next/server";
+import { createSupabaseServerClient } from "@/backend/lib/supabase-server";
 
 export async function POST() {
-  const response = NextResponse.json({ message: "Logged out successfully" });
-  const clearOptions = "HttpOnly; Path=/; SameSite=Lax; Max-Age=0";
-  response.headers.append("Set-Cookie", `access_token=; ${clearOptions}`);
-  response.headers.append("Set-Cookie", `refresh_token=; ${clearOptions}`);
-  return response;
+  try {
+    const supabase = await createSupabaseServerClient();
+    await supabase.auth.signOut();
+
+    // Return response — @supabase/ssr automatically clears session cookies
+    return NextResponse.json({ message: "Logged out successfully" });
+  } catch (error) {
+    console.error("Logout error:", error);
+    return NextResponse.json({ message: "Logged out successfully" });
+  }
 }

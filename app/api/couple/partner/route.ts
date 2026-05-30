@@ -1,36 +1,25 @@
 import { NextRequest } from "next/server";
 import prisma from "@/backend/lib/db";
+import { requireCouple } from "@/backend/lib/requireAuth";
 import { apiError, apiSuccess } from "@/backend/lib/utils";
 
 export async function GET(request: NextRequest) {
+  const auth = await requireCouple(request);
+  if (auth.error) return auth.error;
+
+  const { prismaUserId, coupleId } = auth.context;
+
   try {
-    const token = request.cookies.get("access_token")?.value;
-    if (!token) return apiError("Unauthorized", 401);
-
-    let payload;
-    try {
-      const { jwtVerify } = await import("jose");
-      const secret = new TextEncoder().encode(process.env.JWT_SECRET);
-      const { payload: decoded } = await jwtVerify(token, secret);
-      payload = decoded;
-    } catch {
-      return apiError("Unauthorized", 401);
-    }
-
-    if (!payload.coupleId) {
-      return apiError("Not in a couple", 400);
-    }
-
     // Find the couple to determine the partner's ID
     const couple = await prisma.couple.findUnique({
-      where: { id: payload.coupleId as string },
+      where: { id: coupleId },
     });
 
     if (!couple) {
       return apiError("Couple space not found", 404);
     }
 
-    const partnerId = couple.user1Id === payload.userId ? couple.user2Id : couple.user1Id;
+    const partnerId = couple.user1Id === prismaUserId ? couple.user2Id : couple.user1Id;
 
     // Fetch the partner's real-time details
     const partner = await prisma.user.findUnique({

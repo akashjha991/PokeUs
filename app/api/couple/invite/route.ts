@@ -1,49 +1,39 @@
 import { NextRequest } from "next/server";
 import prisma from "@/backend/lib/db";
-import { verifyAccessToken } from "@/backend/lib/auth";
+import { requireAuth } from "@/backend/lib/requireAuth";
 import { sendInviteEmail } from "@/backend/lib/email";
 import { apiError, apiSuccess } from "@/backend/lib/utils";
 
 export async function POST(request: NextRequest) {
-  try {
-    const token = request.cookies.get("access_token")?.value;
-    if (!token) return apiError("Unauthorized", 401);
-    
-    // Instead of using verifyAccessToken which uses jsonwebtoken, let's use jose to match profile route
-    // Or just use verifyAccessToken if it's safe. It's safer to use jose since we know it works.
-    let payload;
-    try {
-      const { jwtVerify } = await import("jose");
-      const secret = new TextEncoder().encode(process.env.JWT_SECRET);
-      const { payload: decoded } = await jwtVerify(token, secret);
-      payload = decoded;
-    } catch {
-      return apiError("Unauthorized", 401);
-    }
+  const auth = await requireAuth(request);
+  if (auth.error) return auth.error;
 
+  const { prismaUserId, email } = auth.context;
+
+  try {
     const { receiverEmail } = await request.json();
     if (!receiverEmail) return apiError("Partner email is required", 400);
-    if (receiverEmail === payload.email) return apiError("You can't invite yourself", 400);
+    if (receiverEmail === email) return apiError("You can't invite yourself", 400);
 
     const existingCouple = await prisma.couple.findFirst({
-      where: { OR: [{ user1Id: payload.userId as string }, { user2Id: payload.userId as string }] },
+      where: { OR: [{ user1Id: prismaUserId }, { user2Id: prismaUserId }] },
     });
     if (existingCouple) return apiError("You're already paired with a partner", 409);
 
     const existingInvite = await prisma.coupleInvite.findFirst({
-      where: { senderId: payload.userId as string, status: "PENDING" },
+      where: { senderId: prismaUserId, status: "PENDING" },
     });
     if (existingInvite) return apiError("You already have a pending invite", 409);
 
     const invite = await prisma.coupleInvite.create({
       data: {
-        senderId: payload.userId as string,
+        senderId: prismaUserId,
         receiverEmail,
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       },
     });
 
-    const sender = await prisma.user.findUnique({ where: { id: payload.userId as string } });
+    const sender = await prisma.user.findUnique({ where: { id: prismaUserId } });
     
     try {
       await sendInviteEmail(receiverEmail, sender!.name, invite.code);
@@ -63,21 +53,13 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  try {
-    const token = request.cookies.get("access_token")?.value;
-    if (!token) return apiError("Unauthorized", 401);
-    
-    let payload;
-    try {
-      const { jwtVerify } = await import("jose");
-      const secret = new TextEncoder().encode(process.env.JWT_SECRET);
-      const { payload: decoded } = await jwtVerify(token, secret);
-      payload = decoded;
-    } catch {
-      return apiError("Unauthorized", 401);
-    }
+  const auth = await requireAuth(request);
+  if (auth.error) return auth.error;
 
-    const user = await prisma.user.findUnique({ where: { id: payload.userId as string } });
+  const { prismaUserId, email } = auth.context;
+
+  try {
+    const user = await prisma.user.findUnique({ where: { id: prismaUserId } });
     if (!user) return apiError("User not found", 404);
 
     const pendingInvites = await prisma.coupleInvite.findMany({

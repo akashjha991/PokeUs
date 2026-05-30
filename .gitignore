@@ -36,3 +36,5 @@ Thumbs.db
 # Scratch and temp files
 scratch_test.js
 clear_large_avatar.js
+*.tsbuildinfo
+

@@ -30,10 +30,17 @@ app.prepare().then(() => {
   const { createClient } = require("@supabase/supabase-js");
   const { PrismaClient } = require("@prisma/client");
 
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  );
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  let supabase = null;
+
+  if (supabaseUrl && supabaseAnonKey) {
+    supabase = createClient(supabaseUrl, supabaseAnonKey);
+  } else {
+    console.error(
+      "CRITICAL: NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY environment variables are missing. Socket authentication will be disabled."
+    );
+  }
 
   const prisma = new PrismaClient();
 
@@ -48,6 +55,10 @@ app.prepare().then(() => {
   // Socket.IO authentication middleware via Supabase JWT
   io.use(async (socket, next) => {
     try {
+      if (!supabase) {
+        console.error("Socket auth error: Supabase client is not initialized.");
+        return next(new Error("Authentication error: Server is misconfigured"));
+      }
       const token = socket.handshake.auth?.token;
       if (!token) {
         return next(new Error("Authentication error: Token is required"));

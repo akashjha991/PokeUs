@@ -19,12 +19,11 @@ export async function POST(request: NextRequest) {
 
     const { email } = parsed.data;
 
-    const appUrl =
-      process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const origin = request.nextUrl.origin;
 
     // Supabase sends the password reset email automatically
     const { error } = await supabaseAdmin.auth.resetPasswordForEmail(email, {
-      redirectTo: `${appUrl}/reset-password`,
+      redirectTo: `${origin}/api/auth/callback?type=recovery`,
     });
 
     if (error) {

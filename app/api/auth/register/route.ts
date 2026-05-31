@@ -31,13 +31,13 @@ export async function POST(request: NextRequest) {
 
     // Create user in Supabase Auth — sends verification email automatically
     const supabase = await createSupabaseServerClient();
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const origin = request.nextUrl.origin;
 
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        emailRedirectTo: `${appUrl}/api/auth/callback`,
+        emailRedirectTo: `${origin}/api/auth/callback?type=signup`,
         data: {
           full_name: name,
         },

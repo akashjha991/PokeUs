@@ -15,7 +15,7 @@ const FEATURES = [
 ];
 
 const TESTIMONIALS = [
-  { name: "Priya & Arjun", text: "PokeUs feels like our own little world. The chat and memories feature is absolutely beautiful!", avatar: "🥰" },
+  { name: "Preeti & Akki", text: "PokeUs feels like our own little world. The chat and memories feature is absolutely beautiful!", avatar: "🥰" },
   { name: "Sarah & James", text: "We use the mood tracker every day. It's helped us understand each other so much better.", avatar: "💑" },
   { name: "Meera & Raj", text: "The expense tracker alone is worth it. No more arguments about money splits!", avatar: "💜" },
 ];

@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import prisma from "@/backend/lib/db";
-import { supabaseAdmin } from "@/backend/lib/supabase";
+import { createSupabaseServerClient } from "@/backend/lib/supabase-server";
 import { signupSchema } from "@/backend/validations";
 import { apiError, apiSuccess } from "@/backend/lib/utils";
 import { checkRateLimit, getClientIp } from "@/backend/lib/rateLimit";
@@ -30,13 +30,19 @@ export async function POST(request: NextRequest) {
     }
 
     // Create user in Supabase Auth — sends verification email automatically
-    const { data: authData, error: authError } =
-      await supabaseAdmin.auth.admin.createUser({
-        email,
-        password,
-        email_confirm: false, // Supabase sends a confirmation email
-        user_metadata: { full_name: name },
-      });
+    const supabase = await createSupabaseServerClient();
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: `${appUrl}/api/auth/callback`,
+        data: {
+          full_name: name,
+        },
+      },
+    });
 
     if (authError) {
       if (authError.message.toLowerCase().includes("already registered")) {

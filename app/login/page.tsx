@@ -8,20 +8,14 @@ import { motion } from 'framer-motion';
 import { Loader2, Mail, Lock, AlertCircle, ArrowRight, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useAuthStore } from '../../frontend/store/auth.store';
-
-// Zod Schema
-const loginSchema = z.object({
-  email: z.string().email({ message: 'Please enter a valid email address' }),
-  password: z.string().min(8, { message: 'Password must be at least 8 characters' }),
-});
-
-type LoginFormValues = z.infer<typeof loginSchema>;
+import { useAuthStore } from '@/frontend/store';
+import { loginSchema } from '@/backend/validations';
+import type { LoginInput as LoginFormValues } from '@/backend/validations';
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const setAuth = useAuthStore((state) => state.setAuth);
+  const { setUser, setCouple } = useAuthStore();
   const [serverError, setServerError] = useState('');
   const [verifiedMessage, setVerifiedMessage] = useState('');
 
@@ -70,7 +64,8 @@ function LoginForm() {
         return;
       }
 
-      setAuth(result.user, '');
+      setUser(result.user);
+      setCouple(result.couple);
       router.push('/dashboard');
     } catch (err: any) {
       setServerError(err.message);

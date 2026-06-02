@@ -1,10 +1,10 @@
 import { NextRequest } from "next/server";
-import { createServerClient } from "@supabase/ssr";
+import { auth } from "@clerk/nextjs/server";
 import prisma from "@/backend/lib/db";
 import { apiError } from "@/backend/lib/utils";
 
 export interface AuthContext {
-  supabaseUserId: string;
+  clerkUserId: string;
   prismaUserId: string;
   email: string;
   coupleId: string | null;
@@ -12,47 +12,28 @@ export interface AuthContext {
 }
 
 /**
- * requireAuth — validates the incoming Supabase session from cookies.
+ * requireAuth — validates the incoming Clerk session.
  *
  * Returns { context } on success or { error: Response } on failure.
  * Usage in route handlers:
  *
- *   const auth = await requireAuth(request);
- *   if (auth.error) return auth.error;
- *   const { prismaUserId, coupleId } = auth.context;
+ *   const authResult = await requireAuth(request);
+ *   if (authResult.error) return authResult.error;
+ *   const { prismaUserId, coupleId } = authResult.context;
  */
 export async function requireAuth(
-  request: NextRequest
+  _request: NextRequest
 ): Promise<{ context: AuthContext; error: null } | { context: null; error: Response }> {
   try {
-    // Build a minimal Supabase server client that reads cookies from the request
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll() {
-            return request.cookies.getAll();
-          },
-          // We don't need to set cookies in route handlers (read-only)
-          setAll() {},
-        },
-      }
-    );
+    const { userId } = await auth();
 
-    // getUser() makes a round-trip to Supabase to validate the JWT — cannot be spoofed
-    const {
-      data: { user: supabaseUser },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !supabaseUser) {
+    if (!userId) {
       return { context: null, error: apiError("Unauthorized", 401) as Response };
     }
 
-    // Fetch the linked Prisma user
+    // Fetch the linked Prisma user by Clerk user ID
     const prismaUser = await prisma.user.findUnique({
-      where: { supabaseId: supabaseUser.id },
+      where: { clerkId: userId },
       select: {
         id: true,
         email: true,
@@ -71,7 +52,7 @@ export async function requireAuth(
 
     return {
       context: {
-        supabaseUserId: supabaseUser.id,
+        clerkUserId: userId,
         prismaUserId: prismaUser.id,
         email: prismaUser.email,
         coupleId,
@@ -90,15 +71,15 @@ export async function requireAuth(
 export async function requireCouple(
   request: NextRequest
 ): Promise<{ context: AuthContext & { coupleId: string }; error: null } | { context: null; error: Response }> {
-  const auth = await requireAuth(request);
-  if (auth.error) return { context: null, error: auth.error };
+  const authResult = await requireAuth(request);
+  if (authResult.error) return { context: null, error: authResult.error };
 
-  if (!auth.context.coupleId) {
+  if (!authResult.context.coupleId) {
     return { context: null, error: apiError("Not in a couple", 400) as Response };
   }
 
   return {
-    context: { ...auth.context, coupleId: auth.context.coupleId },
+    context: { ...authResult.context, coupleId: authResult.context.coupleId },
     error: null,
   };
 }

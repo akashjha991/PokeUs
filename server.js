@@ -13,9 +13,8 @@ require("dotenv").config({ path: ".env.local" });
 // Fail fast with a clear error if required variables are missing.
 const REQUIRED_ENV_VARS = [
   "DATABASE_URL",
-  "NEXT_PUBLIC_SUPABASE_URL",
-  "NEXT_PUBLIC_SUPABASE_ANON_KEY",
-  "SUPABASE_SERVICE_ROLE_KEY",
+  "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY",
+  "CLERK_SECRET_KEY",
   "NEXT_PUBLIC_APP_URL",
 ];
 
@@ -57,14 +56,8 @@ app.prepare().then(() => {
     }
   });
 
-  const { createClient } = require("@supabase/supabase-js");
+  const { verifyToken } = require("@clerk/backend");
   const { PrismaClient } = require("@prisma/client");
-
-  // Initialize Supabase with anon key for JWT verification only
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  );
 
   const prisma = new PrismaClient();
 
@@ -85,16 +78,16 @@ app.prepare().then(() => {
         return next(new Error("Authentication error: Token is required"));
       }
 
-      const {
-        data: { user },
-        error,
-      } = await supabase.auth.getUser(token);
+      // Verify session token with Clerk
+      const payload = await verifyToken(token, {
+        secretKey: process.env.CLERK_SECRET_KEY,
+      });
 
-      if (error || !user) {
+      if (!payload || !payload.sub) {
         return next(new Error("Authentication error: Invalid or expired token"));
       }
 
-      socket.supabaseUser = user;
+      socket.clerkUserId = payload.sub;
       next();
     } catch (err) {
       // Never surface internal error details to the client
@@ -117,9 +110,9 @@ app.prepare().then(() => {
       }
 
       try {
-        // Fetch the user in Prisma using the verified supabaseUser.id
+        // Fetch the user in Prisma using the verified clerkUserId
         const user = await prisma.user.findUnique({
-          where: { supabaseId: socket.supabaseUser.id },
+          where: { clerkId: socket.clerkUserId },
           include: {
             coupleAsUser1: { select: { id: true } },
             coupleAsUser2: { select: { id: true } },

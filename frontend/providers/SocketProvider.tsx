@@ -3,8 +3,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { io, Socket } from "socket.io-client";
 import { useAuthStore, useNotificationStore } from "@/frontend/store";
-import { usePathname } from "next/navigation";
-import { createSupabaseBrowserClient } from "@/frontend/lib/supabase";
+import { useAuth } from "@clerk/nextjs";
 
 interface SocketContextType {
   socket: Socket | null;
@@ -26,20 +25,19 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
   const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
   const { couple, user } = useAuthStore();
   const incrementUnread = useNotificationStore((s) => s.increment);
-  const pathname = usePathname();
+  const { getToken, isSignedIn } = useAuth();
 
   useEffect(() => {
-    if (!couple) return;
+    if (!couple || !isSignedIn) return;
 
-    const supabase = createSupabaseBrowserClient();
     let socketInstance: Socket | null = null;
 
     const initSocket = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
+      // Get Clerk JWT token for Socket.IO authentication
+      const token = await getToken();
 
       if (!token) {
-        console.warn("Socket.IO: No access token found, skipping connection");
+        console.warn("Socket.IO: No Clerk token found, skipping connection");
         return;
       }
 
@@ -58,14 +56,12 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
       });
 
       // Global listener for new messages
-      socketInstance.on("receive_message", (msg) => {
-        // If the user is NOT actively on the chat page, increment the unread badge
+      socketInstance.on("receive_message", () => {
         if (window.location.pathname !== "/chat") {
           incrementUnread();
         }
       });
 
-      // Listeners for online/offline tracking
       socketInstance.on("online_users", (users: string[]) => {
         setOnlineUsers(users);
       });
@@ -79,7 +75,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
       });
 
       socketInstance.on("error_msg", (msg: string) => {
-        console.error("Socket error message from server:", msg);
+        console.error("Socket error:", msg);
       });
 
       setSocket(socketInstance);
@@ -92,7 +88,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
         socketInstance.disconnect();
       }
     };
-  }, [couple, user, incrementUnread]);
+  }, [couple, user, isSignedIn, incrementUnread, getToken]);
 
   return (
     <SocketContext.Provider value={{ socket, isConnected, onlineUsers }}>

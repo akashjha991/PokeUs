@@ -1,27 +1,22 @@
 import { NextRequest } from "next/server";
+import { auth, currentUser } from "@clerk/nextjs/server";
 import prisma from "@/backend/lib/db";
-import { createSupabaseServerClient } from "@/backend/lib/supabase-server";
 import { apiError, apiSuccess } from "@/backend/lib/utils";
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
-    // Get session from Supabase (reads cookies automatically)
-    const supabase = await createSupabaseServerClient();
-    const {
-      data: { user: supabaseUser },
-      error,
-    } = await supabase.auth.getUser();
+    const { userId } = await auth();
 
-    if (error || !supabaseUser) {
+    if (!userId) {
       return apiError("Unauthorized", 401);
     }
 
-    // Fetch the linked Prisma user
+    // Fetch the linked Prisma user by Clerk ID
     const user = await prisma.user.findUnique({
-      where: { supabaseId: supabaseUser.id },
+      where: { clerkId: userId },
       select: {
         id: true,
-        supabaseId: true,
+        clerkId: true,
         name: true,
         email: true,
         avatar: true,
@@ -36,16 +31,39 @@ export async function GET(request: NextRequest) {
     });
 
     if (!user) {
-      return apiError("User not found", 404);
-    }
+      // Auto-provision: if Clerk user exists but no Prisma record yet, create it
+      const clerkUser = await currentUser();
+      if (!clerkUser) return apiError("Unauthorized", 401);
 
-    // Sync verification status if email is confirmed in Supabase but not in Prisma
-    if (!user.isVerified && supabaseUser.email_confirmed_at) {
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { isVerified: true },
+      const email = clerkUser.emailAddresses[0]?.emailAddress ?? "";
+      const name =
+        `${clerkUser.firstName ?? ""} ${clerkUser.lastName ?? ""}`.trim() ||
+        email.split("@")[0];
+
+      const newUser = await prisma.user.create({
+        data: {
+          clerkId: userId,
+          email,
+          name,
+          isVerified: true,
+        },
+        select: {
+          id: true,
+          clerkId: true,
+          name: true,
+          email: true,
+          avatar: true,
+          bio: true,
+          role: true,
+          isVerified: true,
+          xpPoints: true,
+          streakDays: true,
+          lastActiveAt: true,
+          createdAt: true,
+        },
       });
-      user.isVerified = true;
+
+      return apiSuccess({ user: newUser, couple: null });
     }
 
     // Sync active streak asynchronously

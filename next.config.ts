@@ -1,18 +1,10 @@
 import type { NextConfig } from "next";
 
-// Extract the Supabase hostname dynamically to avoid hardcoding infra details in CSP
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const supabaseHostname = supabaseUrl
-  ? new URL(supabaseUrl).hostname
-  : "";
-
 // Allowed origins for Server Actions (dev + production)
 const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 const allowedOrigins = [
   "localhost:3000",
-  ...(appUrl !== "http://localhost:3000"
-    ? [new URL(appUrl).host]
-    : []),
+  ...(appUrl !== "http://localhost:3000" ? [new URL(appUrl).host] : []),
 ];
 
 const nextConfig: NextConfig = {
@@ -21,6 +13,7 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "res.cloudinary.com" },
       { protocol: "https", hostname: "images.unsplash.com" },
       { protocol: "https", hostname: "avatars.githubusercontent.com" },
+      { protocol: "https", hostname: "img.clerk.com" },
     ],
   },
   experimental: {
@@ -33,16 +26,32 @@ const nextConfig: NextConfig = {
       "res.cloudinary.com",
       "images.unsplash.com",
       "avatars.githubusercontent.com",
-      ...(supabaseHostname ? [supabaseHostname] : []),
+      "img.clerk.com",
+      "https://*.clerk.accounts.dev",
     ].join(" ");
 
     const connectSrc = [
       "'self'",
       "ws:",
       "wss:",
-      ...(supabaseHostname
-        ? [`https://${supabaseHostname}`, `wss://${supabaseHostname}`]
-        : ["http:", "https:"]),
+      "https://*.clerk.accounts.dev",
+      "https://clerk.com",
+      "https://clerk-telemetry.com",
+    ].join(" ");
+
+    const scriptSrc = [
+      "'self'",
+      "'unsafe-eval'",
+      "'unsafe-inline'",
+      "blob:",
+      "https://*.clerk.accounts.dev",
+      "https://clerk.com",
+    ].join(" ");
+
+    const frameSrc = [
+      "'self'",
+      "https://*.clerk.accounts.dev",
+      "https://clerk.com",
     ].join(" ");
 
     return [
@@ -77,11 +86,13 @@ const nextConfig: NextConfig = {
             key: "Content-Security-Policy",
             value: [
               "default-src 'self';",
-              "script-src 'self' 'unsafe-eval' 'unsafe-inline';",
-              "style-src 'self' 'unsafe-inline';",
+              `script-src ${scriptSrc};`,
+              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;",
               `img-src ${imgSrc};`,
               `connect-src ${connectSrc};`,
-              "font-src 'self' data:;",
+              `frame-src ${frameSrc};`,
+              "font-src 'self' data: https://fonts.gstatic.com;",
+              "worker-src 'self' blob:;",
               "object-src 'none';",
               "base-uri 'self';",
               "form-action 'self';",

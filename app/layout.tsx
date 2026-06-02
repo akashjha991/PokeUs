@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Outfit } from "next/font/google";
 import "./globals.css";
+import { ClerkProvider } from "@clerk/nextjs";
 import { Providers } from "@/frontend/components/providers";
 import { Toaster } from "sonner";
 
@@ -63,23 +64,36 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.variable} ${outfit.variable} antialiased`}>
-        <Providers>
-          {children}
-          <Toaster
-            position="top-center"
-            toastOptions={{
-              style: {
-                background: "rgb(var(--surface))",
-                border: "1px solid rgb(var(--border))",
-                color: "rgb(var(--text))",
-              },
-            }}
-            richColors
-          />
-        </Providers>
-      </body>
-    </html>
+    <ClerkProvider
+      appearance={{
+        variables: {
+          colorPrimary: "#a855f7",
+          colorBackground: "#08061a",
+          colorInputBackground: "#13102b",
+          colorText: "#f0e6ff",
+          colorTextSecondary: "#a78bda",
+          borderRadius: "0.75rem",
+        },
+      }}
+    >
+      <html lang="en" suppressHydrationWarning>
+        <body className={`${inter.variable} ${outfit.variable} antialiased`}>
+          <Providers>
+            {children}
+            <Toaster
+              position="top-center"
+              toastOptions={{
+                style: {
+                  background: "rgb(var(--surface))",
+                  border: "1px solid rgb(var(--border))",
+                  color: "rgb(var(--text))",
+                },
+              }}
+              richColors
+            />
+          </Providers>
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }

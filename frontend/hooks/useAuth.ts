@@ -1,48 +1,34 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useAuth as useClerkAuth } from "@clerk/nextjs";
 import { useAuthStore } from "@/frontend/store";
-import { createSupabaseBrowserClient } from "@/frontend/lib/supabase";
 
 /**
- * useAuth — initializes auth state from Supabase session on mount.
- * Listens to auth state changes for cross-tab logout / token refresh.
+ * useAuth — initializes auth state from Clerk session on mount.
+ * Listens to Clerk auth state changes for cross-tab logout / session expiry.
  * Call this once in your dashboard/app layout.
  */
 export function useAuth() {
-  const { user, couple, checkAuth, logout, setLoading } = useAuthStore();
+  const { user, couple, checkAuth } = useAuthStore();
+  const { isSignedIn, isLoaded } = useClerkAuth();
   const initialized = useRef(false);
 
   useEffect(() => {
+    if (!isLoaded) return;
     if (initialized.current) return;
     initialized.current = true;
 
-    const supabase = createSupabaseBrowserClient();
-
-    // Initial auth check (loads user from server session)
+    // Initial auth check — loads Prisma user + couple from /api/auth/me
     checkAuth();
+  }, [isLoaded]);
 
-    // Listen for auth state changes (login, logout, token refresh, cross-tab)
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === "SIGNED_OUT" || !session) {
-        // Session expired or user logged out in another tab
-        useAuthStore.setState({ user: null, couple: null, isLoading: false });
-      } else if (
-        event === "SIGNED_IN" ||
-        event === "TOKEN_REFRESHED" ||
-        event === "USER_UPDATED"
-      ) {
-        // Re-fetch user data from our API to get Prisma user + couple
-        await checkAuth();
-      }
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, []);
+  useEffect(() => {
+    // React to Clerk sign-out (cross-tab, session expiry)
+    if (isLoaded && !isSignedIn) {
+      useAuthStore.setState({ user: null, couple: null, isLoading: false });
+    }
+  }, [isLoaded, isSignedIn]);
 
   return { user, couple };
 }

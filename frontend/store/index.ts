@@ -42,7 +42,7 @@ export const useAuthStore = create<AuthState>()(
       },
       logout: async () => {
         try {
-          // Sign out from Supabase (clears server-side session cookies)
+          // Trigger local server logout endpoint for route state sync
           await fetch("/api/auth/logout", { method: "POST" });
         } catch (err) {
           console.error("Logout error:", err);

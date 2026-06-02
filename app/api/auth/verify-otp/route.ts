@@ -1,7 +1,6 @@
 import { NextRequest } from "next/server";
 import prisma from "@/backend/lib/db";
-import { generateOTP, getOTPExpiry } from "@/backend/lib/auth";
-import { sendOTPEmail } from "@/backend/lib/email";
+import { createSupabaseServerClient } from "@/backend/lib/supabase-server";
 import { apiError, apiSuccess } from "@/backend/lib/utils";
 
 export async function POST(request: NextRequest) {
@@ -11,20 +10,56 @@ export async function POST(request: NextRequest) {
 
     if (!otp || !email) return apiError("OTP and email are required", 400);
 
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) return apiError("User not found", 404);
-    if (user.otpCode !== otp) return apiError("Invalid OTP code", 400);
-    if (!user.otpExpiry || user.otpExpiry < new Date()) {
-      return apiError("OTP has expired. Please request a new one.", 400);
-    }
+    const supabase = await createSupabaseServerClient();
 
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { isVerified: true, otpCode: null, otpExpiry: null },
+    // Verify OTP natively via Supabase (sets cookies automatically)
+    const { data: verifyData, error: verifyError } = await supabase.auth.verifyOtp({
+      email,
+      token: otp,
+      type: "signup",
     });
 
-    await prisma.xPLog.create({ data: { userId: user.id, amount: 50, reason: "Email verified" } });
-    await prisma.user.update({ where: { id: user.id }, data: { xpPoints: { increment: 50 } } });
+    if (verifyError || !verifyData?.user) {
+      console.error("Supabase OTP verification error:", verifyError);
+      return apiError(verifyError?.message || "Invalid or expired verification code", 400);
+    }
+
+    const supabaseUser = verifyData.user;
+
+    // Fetch or create the linked Prisma user
+    let user = await prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      user = await prisma.user.create({
+        data: {
+          supabaseId: supabaseUser.id,
+          name: supabaseUser.user_metadata?.full_name || email.split("@")[0],
+          email,
+          isVerified: true,
+        },
+      });
+    } else {
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          isVerified: true,
+          supabaseId: supabaseUser.id,
+        },
+      });
+    }
+
+    // Award gamification reward for verifying email if not already awarded
+    const existingLog = await prisma.xPLog.findFirst({
+      where: { userId: user.id, reason: "Email verified" },
+    });
+    if (!existingLog) {
+      await prisma.xPLog.create({
+        data: { userId: user.id, amount: 50, reason: "Email verified" },
+      });
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { xpPoints: { increment: 50 } },
+      });
+    }
 
     return apiSuccess({ message: "Email verified successfully!" });
   } catch (error) {
@@ -38,17 +73,20 @@ export async function GET(request: NextRequest) {
     const email = request.nextUrl.searchParams.get("email");
     if (!email) return apiError("Email is required", 400);
 
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) return apiError("User not found", 404);
-    if (user.isVerified) return apiError("Email is already verified", 400);
+    const supabase = await createSupabaseServerClient();
 
-    const otp = generateOTP();
-    const otpExpiry = getOTPExpiry();
+    // Resend signup OTP natively using Supabase
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email,
+    });
 
-    await prisma.user.update({ where: { id: user.id }, data: { otpCode: otp, otpExpiry } });
-    await sendOTPEmail(email, user.name, otp, "verify");
+    if (error) {
+      console.error("Supabase resend OTP error:", error);
+      return apiError(error.message || "Failed to resend verification code", 400);
+    }
 
-    return apiSuccess({ message: "A new OTP has been sent to your email." });
+    return apiSuccess({ message: "A new verification code has been sent to your email." });
   } catch (error) {
     console.error("Resend OTP error:", error);
     return apiError("Something went wrong", 500);

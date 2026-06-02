@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { supabaseAdmin } from "@/backend/lib/supabase";
+import { createSupabaseServerClient } from "@/backend/lib/supabase-server";
 import { forgotPasswordSchema } from "@/backend/validations";
 import { apiError, apiSuccess } from "@/backend/lib/utils";
 import { checkRateLimit, getClientIp } from "@/backend/lib/rateLimit";
@@ -21,8 +21,9 @@ export async function POST(request: NextRequest) {
 
     const origin = request.nextUrl.origin;
 
+    const supabase = await createSupabaseServerClient();
     // Supabase sends the password reset email automatically
-    const { error } = await supabaseAdmin.auth.resetPasswordForEmail(email, {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${origin}/api/auth/callback?type=recovery`,
     });
 

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/backend/lib/db";
-import { supabaseAdmin } from "@/backend/lib/supabase";
 import { createSupabaseServerClient } from "@/backend/lib/supabase-server";
 import { loginSchema } from "@/backend/validations";
 import { apiError } from "@/backend/lib/utils";
@@ -25,8 +24,9 @@ export async function POST(request: NextRequest) {
     const { email, password } = parsed.data;
 
     // Sign in via Supabase Auth
+    const supabase = await createSupabaseServerClient();
     const { data: authData, error: authError } =
-      await supabaseAdmin.auth.signInWithPassword({ email, password });
+      await supabase.auth.signInWithPassword({ email, password });
 
     if (authError || !authData?.user) {
       // Surface friendly messages
@@ -119,13 +119,6 @@ export async function POST(request: NextRequest) {
           },
         },
       },
-    });
-
-    // Set Supabase session cookies via @supabase/ssr
-    const supabase = await createSupabaseServerClient();
-    await supabase.auth.setSession({
-      access_token: authData.session!.access_token,
-      refresh_token: authData.session!.refresh_token,
     });
 
     return NextResponse.json({

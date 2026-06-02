@@ -127,6 +127,12 @@ function VerifyEmailContent() {
                 Return to Login
                 <ArrowRight size={18} />
               </Link>
+              <Link
+                href={`/verify-otp?email=${encodeURIComponent(email)}`}
+                className="mt-4 text-sm font-medium text-zinc-400 hover:text-zinc-200 transition-colors underline underline-offset-4 decoration-zinc-600"
+              >
+                Received a 6-digit code instead? Enter it here
+              </Link>
             </motion.div>
           )}
 

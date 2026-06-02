@@ -39,6 +39,15 @@ export async function GET(request: NextRequest) {
       return apiError("User not found", 404);
     }
 
+    // Sync verification status if email is confirmed in Supabase but not in Prisma
+    if (!user.isVerified && supabaseUser.email_confirmed_at) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { isVerified: true },
+      });
+      user.isVerified = true;
+    }
+
     // Sync active streak asynchronously
     const { updateActiveStreak } = await import(
       "@/backend/services/gamification"

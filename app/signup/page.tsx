@@ -57,8 +57,8 @@ export default function SignupPage() {
       }
 
       // Redirect to email verification info page
-      if (result.data?.requiresVerification) {
-        router.push(`/verify-email`);
+      if (result.requiresVerification || result.data?.requiresVerification) {
+        router.push(`/verify-email?email=${encodeURIComponent(data.email)}`);
         return;
       }
 

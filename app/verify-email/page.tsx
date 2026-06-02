@@ -9,6 +9,7 @@ import Link from 'next/link';
 function VerifyEmailContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const email = searchParams.get('email') || '';
 
   const [status, setStatus] = useState<'loading' | 'success' | 'error' | 'pending'>('pending');
   const [message, setMessage] = useState('');
@@ -69,7 +70,7 @@ function VerifyEmailContent() {
               </div>
               <h1 className="text-2xl font-bold text-white mb-2">Check your email</h1>
               <p className="text-zinc-400 mb-8">
-                We've sent a verification link to your email address. Click it to activate your account.
+                We've sent a verification link to {email ? <span className="text-pink-400 font-semibold">{email}</span> : "your email address"}. Click it to activate your account.
               </p>
               <Link
                 href="/login"

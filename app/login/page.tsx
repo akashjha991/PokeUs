@@ -56,11 +56,9 @@ function LoginForm() {
         throw new Error(result.error || result.message || 'Login failed');
       }
 
-      // Unverified email — prompt user to check email
+      // Unverified email — redirect to verification pending page
       if (result.requiresVerification) {
-        setServerError(
-          'Please verify your email before signing in. Check your inbox for a verification link.'
-        );
+        router.push(`/verify-email?email=${encodeURIComponent(data.email)}`);
         return;
       }
 

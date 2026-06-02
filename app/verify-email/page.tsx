@@ -11,12 +11,55 @@ function VerifyEmailContent() {
   const router = useRouter();
   const email = searchParams.get('email') || '';
 
-  const [status, setStatus] = useState<'loading' | 'success' | 'error' | 'pending'>('pending');
+  const [status, setStatus] = useState<'loading' | 'success' | 'error' | 'pending' | 'verify_hash_pending'>('pending');
   const [message, setMessage] = useState('');
+  const [isVerifying, setIsVerifying] = useState(false);
+
+  async function handleVerifyTokenHash() {
+    const token_hash = searchParams.get('token_hash');
+    const type = searchParams.get('type') || 'signup';
+
+    if (!token_hash) return;
+
+    setIsVerifying(true);
+    try {
+      const { createSupabaseBrowserClient } = await import('@/frontend/lib/supabase');
+      const supabase = createSupabaseBrowserClient();
+
+      const { error } = await supabase.auth.verifyOtp({
+        token_hash,
+        type: type as any,
+      });
+
+      if (error) {
+        setStatus('error');
+        setMessage(error.message || 'Verification failed. The link may have expired.');
+      } else {
+        setStatus('success');
+        if (type === 'recovery') {
+          setMessage('Email confirmed! Redirecting you to set a new password...');
+          setTimeout(() => {
+            router.push('/reset-password');
+          }, 2000);
+        } else {
+          setMessage('Email confirmed! Redirecting you to your dashboard...');
+          setTimeout(() => {
+            router.push('/dashboard');
+          }, 2000);
+        }
+      }
+    } catch (err: any) {
+      setStatus('error');
+      setMessage(err.message || 'Something went wrong.');
+    } finally {
+      setIsVerifying(false);
+    }
+  }
 
   useEffect(() => {
     // If there's a code param, this is a direct Supabase callback link
     const code = searchParams.get('code');
+    const token_hash = searchParams.get('token_hash');
     const error = searchParams.get('error');
     const errorDescription = searchParams.get('error_description');
     const verified = searchParams.get('verified'); // from our /api/auth/callback redirect
@@ -30,6 +73,11 @@ function VerifyEmailContent() {
     if (error) {
       setStatus('error');
       setMessage(errorDescription || 'Verification failed. Please try again.');
+      return;
+    }
+
+    if (token_hash) {
+      setStatus('verify_hash_pending');
       return;
     }
 
@@ -79,6 +127,36 @@ function VerifyEmailContent() {
                 Return to Login
                 <ArrowRight size={18} />
               </Link>
+            </motion.div>
+          )}
+
+          {/* verify_hash_pending — click-gated verification */}
+          {status === 'verify_hash_pending' && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center">
+              <div className="w-20 h-20 mb-6 bg-pink-500/10 rounded-full flex items-center justify-center">
+                <CheckCircle2 className="text-pink-500 animate-pulse" size={40} />
+              </div>
+              <h1 className="text-2xl font-bold text-white mb-2">Confirm Verification</h1>
+              <p className="text-zinc-400 mb-8 leading-relaxed">
+                Click below to activate your account. This extra step keeps your link secure from automated email scanners.
+              </p>
+              <button
+                onClick={handleVerifyTokenHash}
+                disabled={isVerifying}
+                className="w-full bg-white text-black font-semibold rounded-xl py-3.5 flex items-center justify-center gap-2 hover:bg-zinc-200 transition-colors disabled:opacity-50"
+              >
+                {isVerifying ? (
+                  <>
+                    <Loader2 className="animate-spin" size={18} />
+                    <span>Verifying...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Confirm & Verify</span>
+                    <ArrowRight size={18} />
+                  </>
+                )}
+              </button>
             </motion.div>
           )}
 

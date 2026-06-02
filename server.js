@@ -1,5 +1,32 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// server.js — PokeUs Custom Next.js + Socket.IO Server
+// ─────────────────────────────────────────────────────────────────────────────
+
 if (process.argv.includes("--production")) {
   process.env.NODE_ENV = "production";
+}
+
+// Load environment variables before anything else
+require("dotenv").config({ path: ".env.local" });
+
+// ─── Startup Environment Validation ──────────────────────────────────────────
+// Fail fast with a clear error if required variables are missing.
+const REQUIRED_ENV_VARS = [
+  "DATABASE_URL",
+  "NEXT_PUBLIC_SUPABASE_URL",
+  "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+  "SUPABASE_SERVICE_ROLE_KEY",
+  "NEXT_PUBLIC_APP_URL",
+];
+
+const missingVars = REQUIRED_ENV_VARS.filter(
+  (key) => !process.env[key] || process.env[key].trim() === ""
+);
+if (missingVars.length > 0) {
+  console.error(
+    `\n❌ STARTUP FAILED — Missing required environment variables:\n${missingVars.map((k) => `  - ${k}`).join("\n")}\n\nPlease configure your .env.local file. See .env.example for reference.\n`
+  );
+  process.exit(1);
 }
 
 const { createServer } = require("http");
@@ -9,7 +36,10 @@ const { Server } = require("socket.io");
 
 const dev = process.env.NODE_ENV !== "production";
 const hostname = dev ? "localhost" : "0.0.0.0";
-const port = process.env.PORT || 3000;
+const port = parseInt(process.env.PORT || "3000", 10);
+
+// Never allow wildcard CORS in production
+const allowedOrigin = process.env.NEXT_PUBLIC_APP_URL;
 
 // Initialize the Next.js app
 const app = next({ dev, hostname, port });
@@ -30,41 +60,36 @@ app.prepare().then(() => {
   const { createClient } = require("@supabase/supabase-js");
   const { PrismaClient } = require("@prisma/client");
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  let supabase = null;
-
-  if (supabaseUrl && supabaseAnonKey) {
-    supabase = createClient(supabaseUrl, supabaseAnonKey);
-  } else {
-    console.error(
-      "CRITICAL: NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY environment variables are missing. Socket authentication will be disabled."
-    );
-  }
+  // Initialize Supabase with anon key for JWT verification only
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  );
 
   const prisma = new PrismaClient();
 
-  // Attach Socket.IO to the HTTP server
+  // Attach Socket.IO to the HTTP server with strict CORS
   const io = new Server(server, {
     cors: {
-      origin: process.env.NEXT_PUBLIC_APP_URL || "*",
+      origin: allowedOrigin, // Exact origin only — no wildcard fallback
       methods: ["GET", "POST"],
+      credentials: true,
     },
   });
 
-  // Socket.IO authentication middleware via Supabase JWT
+  // ─── Socket.IO Authentication Middleware ─────────────────────────────────
   io.use(async (socket, next) => {
     try {
-      if (!supabase) {
-        console.error("Socket auth error: Supabase client is not initialized.");
-        return next(new Error("Authentication error: Server is misconfigured"));
-      }
       const token = socket.handshake.auth?.token;
       if (!token) {
         return next(new Error("Authentication error: Token is required"));
       }
 
-      const { data: { user }, error } = await supabase.auth.getUser(token);
+      const {
+        data: { user },
+        error,
+      } = await supabase.auth.getUser(token);
+
       if (error || !user) {
         return next(new Error("Authentication error: Invalid or expired token"));
       }
@@ -72,13 +97,17 @@ app.prepare().then(() => {
       socket.supabaseUser = user;
       next();
     } catch (err) {
-      console.error("Socket auth middleware error:", err);
+      // Never surface internal error details to the client
       return next(new Error("Authentication error"));
     }
   });
 
+  // ─── Socket.IO Event Handlers ─────────────────────────────────────────────
   io.on("connection", (socket) => {
-    console.log("Client authenticated:", socket.id);
+    // Only log in development to avoid leaking socket IDs in production
+    if (dev) {
+      console.log("[socket] Client connected:", socket.id);
+    }
 
     // Join a private room based on the couple ID
     socket.on("join_room", async (data) => {
@@ -98,19 +127,26 @@ app.prepare().then(() => {
         });
 
         if (!user) {
-          return socket.emit("error_msg", "User not found in database");
+          return socket.emit("error_msg", "User not found");
         }
 
         // Verify the user belongs to the requested couple
-        const userCoupleId = user.coupleAsUser1[0]?.id || user.coupleAsUser2[0]?.id;
+        const userCoupleId =
+          user.coupleAsUser1[0]?.id || user.coupleAsUser2[0]?.id;
         if (!userCoupleId || userCoupleId !== coupleId) {
-          return socket.emit("error_msg", "Unauthorized: You do not belong to this couple");
+          return socket.emit(
+            "error_msg",
+            "Unauthorized: You do not belong to this couple"
+          );
         }
 
         socket.join(coupleId);
         socket.coupleId = coupleId;
-        socket.userId = user.id; // Store Prisma user ID
-        console.log(`Socket ${socket.id} (User ${user.id}) joined room ${coupleId}`);
+        socket.userId = user.id;
+
+        if (dev) {
+          console.log(`[socket] User joined room: ${coupleId}`);
+        }
 
         // Determine online users in this room
         const clients = io.sockets.adapter.rooms.get(coupleId);
@@ -118,24 +154,25 @@ app.prepare().then(() => {
         if (clients) {
           for (const clientId of clients) {
             const clientSocket = io.sockets.sockets.get(clientId);
-            if (clientSocket && clientSocket.userId && clientSocket.userId !== user.id) {
+            if (
+              clientSocket &&
+              clientSocket.userId &&
+              clientSocket.userId !== user.id
+            ) {
               onlineUsers.push(clientSocket.userId);
             }
           }
         }
 
-        // Emit the list of currently online users back to the client that just joined
         socket.emit("online_users", onlineUsers);
-
-        // Broadcast to everyone else in the room that this user connected
         socket.to(coupleId).emit("user_connected", user.id);
       } catch (err) {
-        console.error("join_room error:", err);
+        if (dev) console.error("[socket] join_room error:", err);
         socket.emit("error_msg", "Failed to join room");
       }
     });
 
-    // Relay messages to the specific couple room
+    // Relay messages — validate room membership before forwarding
     socket.on("send_message", (data) => {
       if (!socket.coupleId || data.coupleId !== socket.coupleId) {
         return socket.emit("error_msg", "Unauthorized room transmission");
@@ -143,7 +180,7 @@ app.prepare().then(() => {
       socket.to(socket.coupleId).emit("receive_message", data);
     });
 
-    // Relay message reactions to the couple room
+    // Relay message reactions
     socket.on("send_reaction", (data) => {
       if (!socket.coupleId || data.coupleId !== socket.coupleId) {
         return socket.emit("error_msg", "Unauthorized room transmission");
@@ -151,7 +188,7 @@ app.prepare().then(() => {
       socket.to(socket.coupleId).emit("receive_reaction", data);
     });
 
-    // Relay message read status to the couple room
+    // Relay message read receipts
     socket.on("messages_read", (data) => {
       if (!socket.coupleId || data.coupleId !== socket.coupleId) {
         return socket.emit("error_msg", "Unauthorized room transmission");
@@ -171,16 +208,21 @@ app.prepare().then(() => {
     });
 
     socket.on("disconnect", () => {
-      console.log("Client disconnected:", socket.id);
+      if (dev) {
+        console.log("[socket] Client disconnected:", socket.id);
+      }
       const { coupleId, userId } = socket;
       if (coupleId && userId) {
-        // Check if there are any other sockets in this coupleId room for the same userId
         const clients = io.sockets.adapter.rooms.get(coupleId);
         let userStillConnected = false;
         if (clients) {
           for (const clientId of clients) {
             const clientSocket = io.sockets.sockets.get(clientId);
-            if (clientSocket && clientSocket.userId === userId && clientSocket.id !== socket.id) {
+            if (
+              clientSocket &&
+              clientSocket.userId === userId &&
+              clientSocket.id !== socket.id
+            ) {
               userStillConnected = true;
               break;
             }
@@ -195,12 +237,14 @@ app.prepare().then(() => {
   });
 
   server.once("error", (err) => {
-    console.error(err);
+    console.error("[server] Fatal error:", err);
     process.exit(1);
   });
 
   server.listen(port, () => {
-    console.log(`> Ready on http://${hostname}:${port}`);
-    console.log(`> Socket.IO server running`);
+    console.log(`▶  Ready on ${allowedOrigin || `http://${hostname}:${port}`}`);
+    if (dev) {
+      console.log("▶  Socket.IO server running (development mode)");
+    }
   });
 });

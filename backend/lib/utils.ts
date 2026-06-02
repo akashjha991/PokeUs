@@ -59,14 +59,8 @@ export function getInitials(name: string): string {
     .slice(0, 2);
 }
 
-export function generateInviteCode(): string {
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-  const crypto = require("crypto");
-  return Array.from({ length: 8 }, () => {
-    const index = crypto.randomInt(0, chars.length);
-    return chars[index];
-  }).join("");
-}
+// generateInviteCode has been moved to backend/lib/server-utils.ts
+// to keep Node.js-only crypto APIs out of shared/client bundles.
 
 
 export function getXPLevel(xp: number): {

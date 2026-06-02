@@ -1,5 +1,20 @@
 import type { NextConfig } from "next";
 
+// Extract the Supabase hostname dynamically to avoid hardcoding infra details in CSP
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+const supabaseHostname = supabaseUrl
+  ? new URL(supabaseUrl).hostname
+  : "";
+
+// Allowed origins for Server Actions (dev + production)
+const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+const allowedOrigins = [
+  "localhost:3000",
+  ...(appUrl !== "http://localhost:3000"
+    ? [new URL(appUrl).host]
+    : []),
+];
+
 const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
@@ -9,9 +24,27 @@ const nextConfig: NextConfig = {
     ],
   },
   experimental: {
-    serverActions: { allowedOrigins: ["localhost:3000"] },
+    serverActions: { allowedOrigins },
   },
   async headers() {
+    const imgSrc = [
+      "'self'",
+      "data:",
+      "res.cloudinary.com",
+      "images.unsplash.com",
+      "avatars.githubusercontent.com",
+      ...(supabaseHostname ? [supabaseHostname] : []),
+    ].join(" ");
+
+    const connectSrc = [
+      "'self'",
+      "ws:",
+      "wss:",
+      ...(supabaseHostname
+        ? [`https://${supabaseHostname}`, `wss://${supabaseHostname}`]
+        : ["http:", "https:"]),
+    ].join(" ");
+
     return [
       {
         source: "/(.*)",
@@ -37,19 +70,23 @@ const nextConfig: NextConfig = {
             value: "max-age=31536000; includeSubDomains; preload",
           },
           {
+            key: "X-DNS-Prefetch-Control",
+            value: "on",
+          },
+          {
             key: "Content-Security-Policy",
             value: [
               "default-src 'self';",
               "script-src 'self' 'unsafe-eval' 'unsafe-inline';",
               "style-src 'self' 'unsafe-inline';",
-              "img-src 'self' data: res.cloudinary.com images.unsplash.com avatars.githubusercontent.com vfwzdhivegfbhaspuhev.supabase.co;",
-              "connect-src 'self' ws: wss: http: https: vfwzdhivegfbhaspuhev.supabase.co;",
+              `img-src ${imgSrc};`,
+              `connect-src ${connectSrc};`,
               "font-src 'self' data:;",
               "object-src 'none';",
               "base-uri 'self';",
               "form-action 'self';",
               "frame-ancestors 'none';",
-              "upgrade-insecure-requests;"
+              "upgrade-insecure-requests;",
             ].join(" "),
           },
         ],

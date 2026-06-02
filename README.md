@@ -183,13 +183,19 @@ PokeUs Dev/
 
 ## 🔒 Security Features
 
-- ✅ JWT access tokens (15min) + refresh tokens (30 days)
-- ✅ HTTP-only secure cookies
-- ✅ bcrypt password hashing (12 rounds)
+- ✅ Supabase Auth — industry-grade authentication with secure session management
+- ✅ HTTP-only secure cookies via `@supabase/ssr`
+- ✅ PKCE flow for email verification and password reset
 - ✅ Zod input validation on all API routes
-- ✅ OTP expiry (10 minutes)
-- ✅ Email enumeration protection on forgot password
-- ✅ Protected routes via Next.js middleware
+- ✅ Rate limiting on all authentication endpoints
+- ✅ Email enumeration protection on forgot-password
+- ✅ Protected routes via Next.js middleware (server-side session validation)
+- ✅ Strict Content-Security-Policy headers
+- ✅ HSTS, X-Frame-Options, X-Content-Type-Options headers
+- ✅ Socket.IO JWT-based authentication for real-time connections
+- ✅ Row-Level Security enforced via Supabase policies
+- ✅ Startup environment variable validation (fails fast on missing secrets)
+- ✅ CORS restricted to exact allowed origin (no wildcards in production)
 
 ---
 

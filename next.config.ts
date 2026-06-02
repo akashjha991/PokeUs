@@ -28,6 +28,7 @@ const nextConfig: NextConfig = {
       "avatars.githubusercontent.com",
       "img.clerk.com",
       "https://*.clerk.accounts.dev",
+      "https://*.clerk.com",
     ].join(" ");
 
     const connectSrc = [
@@ -37,6 +38,7 @@ const nextConfig: NextConfig = {
       "https://*.clerk.accounts.dev",
       "https://clerk.com",
       "https://clerk-telemetry.com",
+      "https://api.clerk.com",
     ].join(" ");
 
     const scriptSrc = [
@@ -46,12 +48,16 @@ const nextConfig: NextConfig = {
       "blob:",
       "https://*.clerk.accounts.dev",
       "https://clerk.com",
+      "https://*.clerk.com",
+      "https://challenges.cloudflare.com",
     ].join(" ");
 
     const frameSrc = [
       "'self'",
       "https://*.clerk.accounts.dev",
       "https://clerk.com",
+      "https://*.clerk.com",
+      "https://challenges.cloudflare.com",
     ].join(" ");
 
     return [

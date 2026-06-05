@@ -123,7 +123,7 @@ export default function LandingPage() {
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-full bg-gradient-brand flex items-center justify-center text-white text-sm font-bold">A</div>
                   <div>
-                    <p className="font-semibold text-sm">Arjun 💜</p>
+                    <p className="font-semibold text-sm">Akki 💜</p>
                     <p className="text-xs" style={{ color: "rgb(var(--text-muted))" }}>● Online now</p>
                   </div>
                 </div>

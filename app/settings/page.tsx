@@ -209,9 +209,23 @@ export default function SettingsPage() {
   return (
     <AppShell>
       <div className="px-4 pt-6 pb-24 space-y-5" style={{ color: "rgb(var(--text))" }}>
-        <div>
-          <h1 className="font-display font-bold text-2xl">Settings</h1>
-          <p className="text-sm" style={{ color: "rgb(var(--text-muted))" }}>Personalize your experience</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="font-display font-bold text-2xl">Settings</h1>
+            <p className="text-sm" style={{ color: "rgb(var(--text-muted))" }}>Personalize your experience</p>
+          </div>
+          <button 
+            onClick={handleLogout} 
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer hover:bg-white/5" 
+            style={{ 
+              color: "#f59e0b",
+              borderColor: "rgba(245,158,11,0.2)",
+              background: "rgba(245,158,11,0.05)"
+            }}
+          >
+            <LogOut size={14} />
+            <span>Sign Out</span>
+          </button>
         </div>
 
         <div>

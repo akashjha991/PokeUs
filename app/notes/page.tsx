@@ -133,14 +133,14 @@ export default function NotesPage() {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="fixed inset-0 z-50 flex items-end justify-center"
-          style={{ background: "rgba(0,0,0,0.6)" }}
+          className="fixed inset-0 z-[100] flex items-end justify-center"
+          style={{ background: "rgba(0,0,0,0.6)", paddingBottom: "5rem" }}
           onClick={(e) => e.target === e.currentTarget && setShowAdd(false)}
         >
           <motion.div
             initial={{ y: 100 }}
             animate={{ y: 0 }}
-            className="w-full max-w-md rounded-t-3xl p-6 space-y-4"
+            className="w-full max-w-md rounded-3xl mx-4 mb-4 p-6 space-y-4 shadow-2xl"
             style={{ background: "rgb(var(--surface))" }}
           >
             <div className="flex items-center justify-between">

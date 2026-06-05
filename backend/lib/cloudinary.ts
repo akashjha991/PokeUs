@@ -17,39 +17,53 @@ export async function uploadImage(
   file: Buffer | string,
   folder: string = "pokeus"
 ): Promise<UploadResult> {
+  // If file is a base64 data URI or a URL string, use upload() directly.
+  // Cloudinary's upload() natively handles data URIs (data:image/...) and URLs.
+  if (typeof file === "string") {
+    return new Promise((resolve, reject) => {
+      cloudinary.uploader.upload(
+        file,
+        {
+          folder,
+          transformation: [{ quality: "auto", fetch_format: "auto" }],
+        },
+        (error, result) => {
+          if (error) {
+            reject(error);
+          } else {
+            resolve({
+              url: result!.secure_url,
+              publicId: result!.public_id,
+              width: result!.width,
+              height: result!.height,
+            });
+          }
+        }
+      );
+    });
+  }
+
+  // If file is a raw Buffer, use upload_stream
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
       {
         folder,
-        upload_preset: process.env.CLOUDINARY_UPLOAD_PRESET,
         transformation: [{ quality: "auto", fetch_format: "auto" }],
       },
       (error, result) => {
-        if (error) reject(error);
-        else
+        if (error) {
+          reject(error);
+        } else {
           resolve({
             url: result!.secure_url,
             publicId: result!.public_id,
             width: result!.width,
             height: result!.height,
           });
+        }
       }
     );
-
-    if (Buffer.isBuffer(file)) {
-      stream.end(file);
-    } else {
-      cloudinary.uploader.upload(file, { folder }, (error, result) => {
-        if (error) reject(error);
-        else
-          resolve({
-            url: result!.secure_url,
-            publicId: result!.public_id,
-            width: result!.width,
-            height: result!.height,
-          });
-      });
-    }
+    stream.end(file);
   });
 }
 

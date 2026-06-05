@@ -3,6 +3,7 @@ import prisma from "@/backend/lib/db";
 import { requireCouple } from "@/backend/lib/requireAuth";
 import { apiError, apiSuccess } from "@/backend/lib/utils";
 import { memorySchema } from "@/backend/validations";
+import { uploadImage } from "@/backend/lib/cloudinary";
 
 export async function GET(request: NextRequest) {
   const auth = await requireCouple(request);
@@ -42,17 +43,31 @@ export async function POST(request: NextRequest) {
     const { photoUrl } = body;
 
     // Validate photo URL if provided
+    let finalPhotoUrl = photoUrl;
+    let finalPublicId = "local_base64";
+
     if (photoUrl) {
-      try {
-        const url = new URL(photoUrl);
-        if (url.protocol !== "https:") {
-          return apiError("Photo must be a secure HTTPS URL", 400);
+      if (photoUrl.startsWith("data:image/")) {
+        try {
+          const uploadResult = await uploadImage(photoUrl, "memories");
+          finalPhotoUrl = uploadResult.url;
+          finalPublicId = uploadResult.publicId;
+        } catch (uploadError) {
+          console.error("Cloudinary memory upload error:", uploadError);
+          return apiError("Failed to upload photo to cloud storage", 500);
         }
-        if (!url.hostname.includes("cloudinary.com")) {
-          return apiError("Photo URL domain is not trusted", 400);
+      } else {
+        try {
+          const url = new URL(photoUrl);
+          if (url.protocol !== "https:") {
+            return apiError("Photo must be a secure HTTPS URL", 400);
+          }
+          if (!url.hostname.includes("cloudinary.com")) {
+            return apiError("Photo URL domain is not trusted", 400);
+          }
+        } catch {
+          return apiError("Invalid photo URL format", 400);
         }
-      } catch {
-        return apiError("Invalid photo URL format", 400);
       }
     }
 
@@ -62,10 +77,10 @@ export async function POST(request: NextRequest) {
         caption: caption ? caption.trim() : null,
         createdById: prismaUserId,
         coupleId,
-        photos: photoUrl ? {
+        photos: finalPhotoUrl ? {
           create: {
-            url: photoUrl,
-            publicId: "local_base64",
+            url: finalPhotoUrl,
+            publicId: finalPublicId,
           }
         } : undefined
       },

@@ -7,6 +7,7 @@ import { Moon, Sun, Bell, Globe, Palette, Shield, Trash2, LogOut, ChevronRight, 
 import Link from "next/link";
 import { useAuthStore, useUIStore } from "@/frontend/store";
 import { toast } from "sonner";
+import { useClerk } from "@clerk/nextjs";
 
 function SettingRow({ icon, label, desc, children }: { icon: React.ReactNode; label: string; desc?: string; children?: React.ReactNode }) {
   return (
@@ -56,6 +57,7 @@ export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
   const { logout, couple, setCouple } = useAuthStore();
   const { colorTheme, setColorTheme } = useUIStore();
+  const { signOut } = useClerk();
   const isDark = theme === "dark";
 
   const [isPushSupported, setIsPushSupported] = useState(false);
@@ -148,9 +150,36 @@ export default function SettingsPage() {
   }
 
   async function handleLogout() {
-    await fetch("/api/auth/logout", { method: "POST" });
+    try {
+      await signOut();
+    } catch (err) {
+      console.error("Clerk signout error:", err);
+    }
     logout();
     window.location.href = "/login";
+  }
+
+  async function handleDeleteAccount() {
+    if (!confirm("Are you sure you want to permanently delete your account? This will delete all your data and cannot be undone.")) return;
+
+    try {
+      const res = await fetch("/api/user/delete", { method: "POST" });
+      if (res.ok) {
+        toast.success("Account deleted successfully.");
+        try {
+          await signOut();
+        } catch (err) {
+          console.error("Clerk signout error after delete:", err);
+        }
+        logout();
+        window.location.href = "/login";
+      } else {
+        const data = await res.json();
+        toast.error(data.error || "Failed to delete account");
+      }
+    } catch (e) {
+      toast.error("Something went wrong");
+    }
   }
 
   async function handleRemoveConnection() {
@@ -280,7 +309,7 @@ export default function SettingsPage() {
                 </div>
               </button>
             )}
-            <button className="card w-full flex items-center gap-3 p-4 text-left">
+            <button onClick={handleDeleteAccount} className="card w-full flex items-center gap-3 p-4 text-left">
               <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "rgba(239,68,68,0.1)" }}>
                 <Trash2 size={18} style={{ color: "rgb(239,68,68)" }} />
               </div>

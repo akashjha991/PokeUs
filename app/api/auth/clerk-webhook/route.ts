@@ -126,7 +126,31 @@ export async function POST(request: Request) {
       // Find and cascade-delete the Prisma user (Prisma handles relations)
       const user = await prisma.user.findUnique({ where: { clerkId: id } });
       if (user) {
-        // Delete child records first (in dependency order)
+        // Find if they are in a couple and delete the couple
+        const userCouple = await prisma.couple.findFirst({
+          where: {
+            OR: [
+              { user1Id: user.id },
+              { user2Id: user.id }
+            ]
+          }
+        });
+        
+        if (userCouple) {
+          await prisma.couple.delete({ where: { id: userCouple.id } });
+        }
+
+        // Delete invites
+        await prisma.coupleInvite.deleteMany({
+          where: {
+            OR: [
+              { senderId: user.id },
+              { receiverId: user.id }
+            ]
+          }
+        });
+
+        // Delete user and remaining relations
         await prisma.$transaction([
           prisma.xPLog.deleteMany({ where: { userId: user.id } }),
           prisma.moodEntry.deleteMany({ where: { userId: user.id } }),

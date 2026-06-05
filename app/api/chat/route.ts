@@ -3,6 +3,7 @@ import prisma from "@/backend/lib/db";
 import { requireCouple } from "@/backend/lib/requireAuth";
 import { apiError, apiSuccess } from "@/backend/lib/utils";
 import { messageSchema } from "@/backend/validations";
+import { uploadImage } from "@/backend/lib/cloudinary";
 
 export async function GET(request: NextRequest) {
   const auth = await requireCouple(request);
@@ -43,25 +44,36 @@ export async function POST(request: NextRequest) {
     const { mediaUrl } = body;
 
     // Validate mediaUrl is a HTTPS Cloudinary URL if provided
+    let finalMediaUrl = mediaUrl;
     if (mediaUrl) {
-      try {
-        const url = new URL(mediaUrl);
-        if (url.protocol !== "https:" || !url.hostname.includes("cloudinary.com")) {
+      if (mediaUrl.startsWith("data:image/")) {
+        try {
+          const uploadResult = await uploadImage(mediaUrl, "chat");
+          finalMediaUrl = uploadResult.url;
+        } catch (uploadError) {
+          console.error("Cloudinary chat image upload error:", uploadError);
+          return apiError("Failed to upload image to cloud storage", 500);
+        }
+      } else {
+        try {
+          const url = new URL(mediaUrl);
+          if (url.protocol !== "https:" || !url.hostname.includes("cloudinary.com")) {
+            return apiError("Invalid media URL", 400);
+          }
+        } catch {
           return apiError("Invalid media URL", 400);
         }
-      } catch {
-        return apiError("Invalid media URL", 400);
       }
     }
 
-    if (!content && !mediaUrl) return apiError("Message content or media is required", 400);
+    if (!content && !finalMediaUrl) return apiError("Message content or media is required", 400);
 
     const message = await prisma.message.create({
       data: {
         content: content || "",
         type,
         replyToId,
-        mediaUrl: mediaUrl || null,
+        mediaUrl: finalMediaUrl || null,
         senderId: prismaUserId,
         coupleId,
       },

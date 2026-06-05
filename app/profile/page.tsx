@@ -9,6 +9,7 @@ import { Camera, Edit3, Mail, Send, Shield, Trophy, Star, Flame, LogOut, Chevron
 import Link from "next/link";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { useClerk } from "@clerk/nextjs";
 
 const BADGES = [
   { icon: "🌟", name: "First Week", desc: "Stayed connected for 7 days", earned: true },
@@ -22,6 +23,7 @@ const BADGES = [
 export default function ProfilePage() {
   const { user, couple, logout, setUser, setCouple } = useAuthStore();
   const router = useRouter();
+  const { signOut } = useClerk();
   const partner = couple ? (couple.user1.id === user?.id ? couple.user2 : couple.user1) : null;
   const xpInfo = getXPLevel(user?.xpPoints || 0);
   const [inviteEmail, setInviteEmail] = useState("");
@@ -64,7 +66,11 @@ export default function ProfilePage() {
   }
 
   async function handleLogout() {
-    await fetch("/api/auth/logout", { method: "POST" });
+    try {
+      await signOut();
+    } catch (err) {
+      console.error("Clerk signout error:", err);
+    }
     logout();
     window.location.href = "/login";
   }

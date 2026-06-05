@@ -17,6 +17,18 @@ export default clerkMiddleware(async (auth, request) => {
     return NextResponse.next();
   }
 
+  const { userId } = await auth();
+
+  // If the user is signed in and visiting the landing page, redirect to the app
+  if (userId && request.nextUrl.pathname === "/") {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
+
+  // If the user is signed in and visiting login/signup, redirect to the app
+  if (userId && (request.nextUrl.pathname.startsWith("/login") || request.nextUrl.pathname.startsWith("/signup"))) {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
+
   if (!isPublicRoute(request)) {
     // Protect all non-public routes — redirect unauthenticated users to sign-in
     await auth.protect();

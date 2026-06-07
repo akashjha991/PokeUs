@@ -178,7 +178,7 @@ export default function ProfilePage() {
 
   return (
     <AppShell>
-      <div className="px-4 pt-6 pb-4 space-y-5" style={{ color: "rgb(var(--text))" }}>
+      <div className="px-4 pt-6 pb-28 space-y-5" style={{ color: "rgb(var(--text))" }}>
         {/* Avatar + Name */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-center text-center gap-3">
           <div className="relative">

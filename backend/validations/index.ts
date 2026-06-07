@@ -71,7 +71,7 @@ export const calendarEventSchema = z.object({
 
 export const messageSchema = z.object({
   content: z.string().min(1).max(2000),
-  type: z.enum(["TEXT", "IMAGE", "VIDEO", "AUDIO", "STICKER"]).optional(),
+  type: z.enum(["TEXT", "IMAGE", "VIDEO", "AUDIO", "STICKER", "FILE"]).optional(),
   replyToId: z.string().optional(),
 });
 

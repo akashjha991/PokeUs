@@ -67,7 +67,10 @@ export default function DashboardPage() {
     else setGreeting("Good evening");
   }, []);
 
-  // Load daily question + flashback if in a couple
+  // Activities
+  const [activities, setActivities] = useState<any[]>([]);
+
+  // Load daily question + flashback + activities if in a couple
   useEffect(() => {
     if (!couple) return;
     fetch("/api/daily-question")
@@ -83,6 +86,11 @@ export default function DashboardPage() {
     fetch("/api/flashback")
       .then((r) => r.json())
       .then((d) => { if (d.memories?.length > 0 || d.moods?.length > 0) setFlashback(d); })
+      .catch(console.error);
+
+    fetch("/api/activity")
+      .then((r) => r.json())
+      .then((d) => { if (d.activities) setActivities(d.activities); })
       .catch(console.error);
   }, [couple]);
 
@@ -373,21 +381,25 @@ export default function DashboardPage() {
         <div>
           <h2 className="font-display font-bold text-base mb-3">Recent Activity</h2>
           <div className="space-y-2">
-            {MOCK_ACTIVITY.map((item, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.3 + i * 0.07 }}
-                className="card flex items-center gap-3 p-3.5"
-              >
-                <span className="text-xl flex-shrink-0">{item.icon}</span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{item.text}</p>
-                  <p className="text-xs" style={{ color: "rgb(var(--text-muted))" }}>{item.time}</p>
-                </div>
-              </motion.div>
-            ))}
+            {activities.length === 0 ? (
+              <p className="text-sm text-center py-4" style={{ color: "rgb(var(--text-muted))" }}>No recent activity yet 🌸</p>
+            ) : (
+              activities.map((item, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.3 + i * 0.07 }}
+                  className="card flex items-center gap-3 p-3.5"
+                >
+                  <span className="text-xl flex-shrink-0">{item.icon}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium">{item.text}</p>
+                    <p className="text-xs mt-0.5" style={{ color: "rgb(var(--text-muted))" }}>{item.dateStr}</p>
+                  </div>
+                </motion.div>
+              ))
+            )}
           </div>
         </div>
       </div>

@@ -5,10 +5,11 @@ import { useAuthStore, useNotificationStore } from "@/frontend/store";
 import { getInitials, formatChatTime } from "@/backend/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useRef, useEffect } from "react";
-import { Send, Image, Smile, MoreVertical, ArrowLeft, Reply, X, Camera, Heart, Sparkles, Maximize2, Search, Mic, PlusCircle } from "lucide-react";
+import { Send, Image, Smile, MoreVertical, ArrowLeft, Reply, X, Camera, Heart, Sparkles, Maximize2, Search, Mic, PlusCircle, FileText, Download, Paperclip } from "lucide-react";
 import Link from "next/link";
 import { useSocket } from "@/frontend/providers/SocketProvider";
 import { encryptMessage, decryptMessage, generateCID } from "@/backend/lib/crypto";
+import { toast } from "sonner";
 
 // Predefined Stickers categories
 const STICKER_PACKS = [
@@ -30,7 +31,105 @@ const STICKER_PACKS = [
   },
 ];
 
-const EMOJIS = ["😀", "😊", "🥰", "😍", "😌", "😴", "😢", "😤", "🤩", "💜", "👍", "😂", "😮", "🥺", "🔥", "🎉"];
+const EMOJI_CATEGORIES = [
+  {
+    name: "😀 Smileys",
+    emojis: ["😀","😃","😄","😁","😆","😅","😂","🤣","😊","😇","🙂","🙃","😉","😌","😍","🥰","😘","😗","😙","😚","😋","😛","😝","😜","🤪","🤨","🧐","🤓","😎","🤩","🥳","😏","😒","😞","😔","😟","😕","🙁","☹️","😣","😖","😫","😩","🥺","😢","😭","😤","😠","😡","🤬","🤯","😳","🥵","🥶","😱","😨","😰","😥","😓","🤗","🤔","🤭","🤫","🤥","😶","😐","😑","😬","🙄","😯","😦","😧","😮","😲","🥱","😴","🤤","😪","😵","🤐","🥴","🤢","🤮","🤧","😷","🤒","🤕","🤠","😈","👿","👹","👺","🤡","💩","👻","💀","☠️","👽","👾","🤖","🎃"]
+  },
+  {
+    name: "👋 Hands",
+    emojis: ["👋","🤚","🖐️","✋","🖖","👌","🤏","✌️","🤞","🤟","🤘","🤙","👈","👉","👆","🖕","👇","☝️","👍","👎","✊","👊","🤛","🤜","👏","🙌","👐","🤲","🤝","🙏","✍️","💅","🤳","💪","🦾","🧠","🗣️","👤","👥"]
+  },
+  {
+    name: "💜 Hearts",
+    emojis: ["❤️","🧡","💛","💚","💙","💜","🖤","🤍","🤎","💔","❤️‍🔥","❤️‍🩹","❣️","💕","💞","💓","💗","💖","💘","💝","💟","💌","💋"]
+  },
+  {
+    name: "🐱 Animals",
+    emojis: ["🐶","🐱","🐭","🐹","🐰","🦊","🐻","🐼","🐨","🐯","🦁","🐮","🐷","🐽","🐸","🐵","🙈","🙉","🙊","🐒","🐔","🐧","🐦","🐤","🐣","🐥","🦆","🦢","🦉","🦤","🦩","🦚","🦅","🦇","🐺","🐗","🐴","🦄","🐝","🪱","🐛","🦋","🐌","🐞","🐜","🪰","🪲","🪳","🦥","🦦","🦫","🦔","🐇","🐈","🐕"]
+  },
+  {
+    name: "🥞 Food",
+    emojis: ["🍏","🍎","🍊","🍋","🍌","🍉","🍇","🍓","🫐","🍒","🍑","🥭","🍍","🥥","🍅","🍆","🥑","🥦","🥬","🥒","🌶️","🫑","🧅","🧄","🥕","🌽","🥔","🍠","🥐","🍞","🥖","🥨","🥯","🥞","🧇","🧀","🍖","🍗","🥩","🥓","🍔","🍟","🍕","🌭","🥪","🌮","🌯","🥚","🍳","🥘","🍲","🥗","🍿","🧈","🧂","🥫","🍱","🍘","🍙","🍚","🍛","🍜","🍝","🍢","🍣","🍤","🍨","🍧","🍦","🍩","🍪","🎂","🍰","🧁","🥧","🍫","🍬","🍭","🍮","🍯","🥛","☕","🍵","🍺","🍻","🍷","🍸","🍹","🥤"]
+  },
+  {
+    name: "🎈 Fun & Places",
+    emojis: ["⚽","🏀","🏈","⚾","🥎","🎾","🏐","🎒","🎓","👑","🌂","💼","👓","🕶️","🧳","🎨","🎬","🎭","🎫","🎪","🏆","🏅","🥇","🥈","🥉","🚗","🚕","🏎️","🚌","🚑","🚒","🚓","🚚","🚜","🛴","✈️","🚀","🛸","⚓"]
+  }
+];
+
+function VoiceMessagePlayer({ src, isMe }: { src: string; isMe: boolean }) {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+    };
+  }, []);
+
+  const togglePlay = () => {
+    if (!audioRef.current) {
+      audioRef.current = new Audio(src);
+      audioRef.current.onloadedmetadata = () => {
+        setDuration(audioRef.current?.duration || 0);
+      };
+      audioRef.current.ontimeupdate = () => {
+        setCurrentTime(audioRef.current?.currentTime || 0);
+      };
+      audioRef.current.onended = () => {
+        setIsPlaying(false);
+        setCurrentTime(0);
+      };
+    }
+
+    if (isPlaying) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+    } else {
+      audioRef.current.play().catch(console.error);
+      setIsPlaying(true);
+    }
+  };
+
+  const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
+
+  const formatTime = (time: number) => {
+    if (isNaN(time)) return "0:00";
+    const minutes = Math.floor(time / 60);
+    const seconds = Math.floor(time % 60);
+    return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
+  };
+
+  return (
+    <div className={`flex items-center gap-3 p-3 rounded-2xl w-[240px] ${isMe ? "bg-purple-600 text-white" : "bg-zinc-800 text-white"}`}>
+      <button 
+        onClick={togglePlay} 
+        className="w-8 h-8 rounded-full flex items-center justify-center bg-white/20 hover:bg-white/30 transition-transform active:scale-95 flex-shrink-0 text-white"
+      >
+        {isPlaying ? (
+          <span className="text-xs">⏸️</span>
+        ) : (
+          <span className="text-xs ml-0.5">▶️</span>
+        )}
+      </button>
+      <div className="flex-1 min-w-0">
+        <div className="h-1 bg-white/20 rounded-full overflow-hidden mb-1 relative">
+          <div className="h-full bg-white" style={{ width: `${progress}%` }} />
+        </div>
+        <div className="flex justify-between text-[9px] opacity-80 font-mono">
+          <span>{formatTime(currentTime)}</span>
+          <span>{formatTime(duration || currentTime)}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const REACTION_LIST = ["❤️", "👍", "😂", "😮", "🥺", "🔥"];
 
 export default function ChatPage() {
@@ -58,6 +157,17 @@ export default function ChatPage() {
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const documentInputRef = useRef<HTMLInputElement>(null);
+
+  // Voice recording states
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const recordingTimerRef = useRef<any>(null);
+
+  // Emoji category index
+  const [emojiCategoryIndex, setEmojiCategoryIndex] = useState(0);
 
   function openE2EEMenu() {
     setShowE2EEMenu(true);
@@ -183,8 +293,95 @@ export default function ChatPage() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
 
+  // Format recording timer
+  function formatSeconds(secs: number) {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${m}:${s < 10 ? "0" : ""}${s}`;
+  }
+
+  // Start recording voice note
+  async function startRecording() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+        stream.getTracks().forEach((track) => track.stop());
+
+        if (audioBlob.size > 0) {
+          const reader = new FileReader();
+          reader.readAsDataURL(audioBlob);
+          reader.onloadend = () => {
+            const base64data = reader.result as string;
+            sendMessage("Voice Note 🎤", "AUDIO", base64data);
+          };
+        }
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+      setRecordingDuration(0);
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingDuration((prev) => prev + 1);
+      }, 1000);
+      toast.success("Voice recording started 🎙️");
+    } catch (err) {
+      console.error("Failed to start recording:", err);
+      toast.error("Could not access microphone 🎤");
+    }
+  }
+
+  // Stop recording
+  function stopRecording(shouldSend = true) {
+    if (!mediaRecorderRef.current || mediaRecorderRef.current.state === "inactive") return;
+
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+
+    if (!shouldSend) {
+      mediaRecorderRef.current.onstop = () => {
+        mediaRecorderRef.current?.stream.getTracks().forEach((track) => track.stop());
+        toast.info("Recording cancelled ❌");
+      };
+    }
+
+    mediaRecorderRef.current.stop();
+    setIsRecording(false);
+  }
+
+  // Process selected document
+  function processAndSendFile(file: File) {
+    if (!file || !user || !couple) return;
+
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error("File is too large. Maximum size is 8MB 📁");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => {
+      const base64 = reader.result as string;
+      const displayFilename = `${file.name} 📄`;
+      sendMessage(displayFilename, "FILE", base64);
+      toast.success(`Sending ${file.name}... 📁`);
+    };
+  }
+
   // General message sender
-  async function sendMessage(customContent?: string, type: "TEXT" | "STICKER" | "IMAGE" = "TEXT", mediaUrl?: string) {
+  async function sendMessage(customContent?: string, type: "TEXT" | "STICKER" | "IMAGE" | "AUDIO" | "FILE" = "TEXT", mediaUrl?: string) {
     if (!user || !couple) return;
 
     const content = customContent !== undefined ? customContent : input.trim();
@@ -351,7 +548,7 @@ export default function ChatPage() {
     <AppShell>
       <div className="fixed inset-0 flex flex-col bg-[rgb(var(--background))]" style={{ color: "rgb(var(--text))" }}>
         
-        {/* HIDDEN FILE INPUTS FOR CAMERA & GALLERY */}
+        {/* HIDDEN FILE INPUTS FOR CAMERA, GALLERY, & DOCUMENTS */}
         <input
           type="file"
           accept="image/*"
@@ -366,6 +563,12 @@ export default function ChatPage() {
           ref={cameraInputRef}
           className="hidden"
           onChange={(e) => e.target.files?.[0] && processAndSendImage(e.target.files[0])}
+        />
+        <input
+          type="file"
+          ref={documentInputRef}
+          className="hidden"
+          onChange={(e) => e.target.files?.[0] && processAndSendFile(e.target.files[0])}
         />
 
         {/* CHAT HEADER */}
@@ -517,6 +720,29 @@ export default function ChatPage() {
                             <Maximize2 className="text-white drop-shadow-lg" size={20} />
                           </div>
                         </div>
+                      ) : msg.type === "AUDIO" && msg.mediaUrl ? (
+                        // Sleek voice note player bubble
+                        <VoiceMessagePlayer src={msg.mediaUrl} isMe={isMe} />
+                      ) : msg.type === "FILE" && msg.mediaUrl ? (
+                        // Elegant custom file attachment display
+                        <div className={`flex items-center gap-3 p-3 rounded-2xl max-w-[260px] border ${isMe ? "bg-purple-900/40 border-purple-500/50 text-white" : "bg-zinc-850 border-zinc-700/50 text-white"}`}>
+                          <div className="p-2.5 rounded-xl bg-white/10 flex-shrink-0">
+                            <FileText size={20} className="text-white" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-semibold truncate text-white">{msg.content}</p>
+                            <p className="text-[10px] text-zinc-400 mt-0.5">Attachment</p>
+                          </div>
+                          <a 
+                            href={msg.mediaUrl} 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            className="p-2 rounded-lg bg-white/10 hover:bg-white/20 active:scale-95 transition-transform text-white flex-shrink-0"
+                            title="Download/View file"
+                          >
+                            <Download size={14} />
+                          </a>
+                        </div>
                       ) : (
                         // Standard messaging bubble
                         <div className={isMe ? "bubble-out" : "bubble-in"}>
@@ -641,63 +867,88 @@ export default function ChatPage() {
         {/* INPUT CONTROLS BAR */}
         <div className="px-2 pt-1.5 pb-1.5 border-t bg-black" style={{ borderColor: "rgb(var(--border))", paddingBottom: "max(8px, env(safe-area-inset-bottom))" }}>
           
-          <div className="flex items-end gap-2 bg-[#262626] rounded-[24px] pl-1.5 pr-2 py-1.5" style={{ minHeight: "48px" }}>
-            
-            {/* LEFT ACTION BUTTON */}
-            <div className="flex-shrink-0">
-              {input.trim() ? (
-                <div className="w-9 h-9 rounded-full flex items-center justify-center bg-[#8b5cf6] text-white">
-                  <Search size={20} strokeWidth={2.5} />
-                </div>
-              ) : (
+          {isRecording ? (
+            <div className="flex items-center justify-between bg-[#262626] rounded-[24px] px-4 py-2" style={{ minHeight: "48px" }}>
+              <div className="flex items-center gap-3">
+                <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse animate-duration-1000" />
+                <span className="text-sm font-semibold text-white">Recording {formatSeconds(recordingDuration)}</span>
+              </div>
+              <div className="flex items-center gap-3">
                 <button 
-                  onClick={() => cameraInputRef.current?.click()}
-                  className="w-9 h-9 rounded-full flex items-center justify-center bg-[#4f46e5] text-white transition-transform active:scale-95"
+                  onClick={() => stopRecording(false)} 
+                  className="p-2 rounded-full bg-zinc-800 text-zinc-400 hover:text-white transition-colors active:scale-95"
+                  title="Cancel Recording"
                 >
-                  <Camera size={20} strokeWidth={2.5} />
+                  <X size={18} />
                 </button>
-              )}
-            </div>
-
-            {/* INPUT FIELD */}
-            <textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Message..."
-              rows={1}
-              className="resize-none flex-1 bg-transparent border-none outline-none text-[15px] px-1 py-1.5 text-white placeholder-[#a1a1aa]"
-              style={{ minHeight: 36, maxHeight: 120, lineHeight: "1.4" }}
-            />
-
-            {/* RIGHT ACTION BUTTONS */}
-            <div className="flex items-center flex-shrink-0 pb-0.5">
-              {input.trim() ? (
-                <button
-                  onClick={() => sendMessage()}
-                  disabled={!input.trim()}
-                  className="w-8 h-8 rounded-full flex items-center justify-center bg-[#8b5cf6] text-white transition-transform active:scale-95 mr-1"
+                <button 
+                  onClick={() => stopRecording(true)} 
+                  className="p-2 rounded-full bg-[#8b5cf6] text-white hover:brightness-110 transition-transform active:scale-95"
+                  title="Send Voice Note"
                 >
-                  <Send size={16} strokeWidth={2.5} className="ml-0.5" />
+                  <Send size={18} />
                 </button>
-              ) : (
-                <div className="flex items-center gap-3.5 text-white mr-2">
-                  <button title="Voice Message" className="transition-transform active:scale-95">
-                    <Mic size={22} strokeWidth={2} />
-                  </button>
-                  <button onClick={() => fileInputRef.current?.click()} title="Gallery" className="transition-transform active:scale-95">
-                    <Image size={22} strokeWidth={2} />
-                  </button>
-                  <button onClick={() => setShowEmoji(!showEmoji)} title="Stickers" className="transition-transform active:scale-95">
-                    <Smile size={22} strokeWidth={2} style={{ color: showEmoji ? "#8b5cf6" : "white" }} />
-                  </button>
-                  <button title="More" className="transition-transform active:scale-95">
-                    <PlusCircle size={22} strokeWidth={2} />
-                  </button>
-                </div>
-              )}
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="flex items-end gap-2 bg-[#262626] rounded-[24px] pl-1.5 pr-2 py-1.5" style={{ minHeight: "48px" }}>
+              
+              {/* LEFT ACTION BUTTON */}
+              <div className="flex-shrink-0">
+                {input.trim() ? (
+                  <div className="w-9 h-9 rounded-full flex items-center justify-center bg-[#8b5cf6] text-white">
+                    <Search size={20} strokeWidth={2.5} />
+                  </div>
+                ) : (
+                  <button 
+                    onClick={() => cameraInputRef.current?.click()}
+                    className="w-9 h-9 rounded-full flex items-center justify-center bg-[#4f46e5] text-white transition-transform active:scale-95"
+                  >
+                    <Camera size={20} strokeWidth={2.5} />
+                  </button>
+                )}
+              </div>
+
+              {/* INPUT FIELD */}
+              <textarea
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Message..."
+                rows={1}
+                className="resize-none flex-1 bg-transparent border-none outline-none text-[15px] px-1 py-1.5 text-white placeholder-[#a1a1aa]"
+                style={{ minHeight: 36, maxHeight: 120, lineHeight: "1.4" }}
+              />
+
+              {/* RIGHT ACTION BUTTONS */}
+              <div className="flex items-center flex-shrink-0 pb-0.5">
+                {input.trim() ? (
+                  <button
+                    onClick={() => sendMessage()}
+                    disabled={!input.trim()}
+                    className="w-8 h-8 rounded-full flex items-center justify-center bg-[#8b5cf6] text-white transition-transform active:scale-95 mr-1"
+                  >
+                    <Send size={16} strokeWidth={2.5} className="ml-0.5" />
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-3.5 text-white mr-2">
+                    <button onClick={startRecording} title="Voice Message" className="transition-transform active:scale-95">
+                      <Mic size={22} strokeWidth={2} />
+                    </button>
+                    <button onClick={() => fileInputRef.current?.click()} title="Gallery" className="transition-transform active:scale-95">
+                      <Image size={22} strokeWidth={2} />
+                    </button>
+                    <button onClick={() => setShowEmoji(!showEmoji)} title="Stickers" className="transition-transform active:scale-95">
+                      <Smile size={22} strokeWidth={2} style={{ color: showEmoji ? "#8b5cf6" : "white" }} />
+                    </button>
+                    <button onClick={() => documentInputRef.current?.click()} title="More" className="transition-transform active:scale-95">
+                      <PlusCircle size={22} strokeWidth={2} />
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* TABBED EMOJI & STICKERS SELECTOR HUD */}
@@ -728,16 +979,32 @@ export default function ChatPage() {
 
               {/* Viewport for Emojis tab */}
               {emojiTab === "emojis" && (
-                <div className="p-4 overflow-y-auto grid grid-cols-8 gap-3 max-h-[220px]">
-                  {EMOJIS.map((emo) => (
-                    <button
-                      key={emo}
-                      onClick={() => setInput((val) => val + emo)}
-                      className="text-3xl hover:scale-120 active:scale-95 transition-transform"
-                    >
-                      {emo}
-                    </button>
-                  ))}
+                <div className="flex flex-col flex-1 min-h-0">
+                  {/* Emoji Category Chips */}
+                  <div className="flex gap-2 px-4 py-2 bg-[rgb(var(--surface-muted))] overflow-x-auto whitespace-nowrap scrollbar-none border-b" style={{ borderColor: "rgb(var(--border))" }}>
+                    {EMOJI_CATEGORIES.map((cat, idx) => (
+                      <button
+                        key={cat.name}
+                        onClick={() => setEmojiCategoryIndex(idx)}
+                        className={`text-xs px-3 py-1.5 rounded-full font-medium transition-all ${emojiCategoryIndex === idx ? "bg-purple-650 text-white shadow-sm" : "bg-zinc-800 text-zinc-400 hover:bg-zinc-750"}`}
+                      >
+                        {cat.name}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Emojis Grid */}
+                  <div className="p-4 overflow-y-auto grid grid-cols-8 gap-3 max-h-[160px] flex-1">
+                    {EMOJI_CATEGORIES[emojiCategoryIndex].emojis.map((emo) => (
+                      <button
+                        key={emo}
+                        onClick={() => setInput((val) => val + emo)}
+                        className="text-3xl hover:scale-120 active:scale-95 transition-transform"
+                      >
+                        {emo}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
 

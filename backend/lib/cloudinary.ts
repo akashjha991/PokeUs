@@ -15,18 +15,23 @@ export interface UploadResult {
 
 export async function uploadImage(
   file: Buffer | string,
-  folder: string = "pokeus"
+  folder: string = "pokeus",
+  resourceType: "image" | "video" | "raw" | "auto" = "auto"
 ): Promise<UploadResult> {
-  // If file is a base64 data URI or a URL string, use upload() directly.
-  // Cloudinary's upload() natively handles data URIs (data:image/...) and URLs.
+  const options: any = {
+    folder,
+    resource_type: resourceType,
+  };
+  if (resourceType === "image") {
+    options.transformation = [{ quality: "auto", fetch_format: "auto" }];
+  }
+
+  // If file is a string (base64 data URI or URL), use upload() directly.
   if (typeof file === "string") {
     return new Promise((resolve, reject) => {
       cloudinary.uploader.upload(
         file,
-        {
-          folder,
-          transformation: [{ quality: "auto", fetch_format: "auto" }],
-        },
+        options,
         (error, result) => {
           if (error) {
             reject(error);
@@ -34,8 +39,8 @@ export async function uploadImage(
             resolve({
               url: result!.secure_url,
               publicId: result!.public_id,
-              width: result!.width,
-              height: result!.height,
+              width: result!.width || 0,
+              height: result!.height || 0,
             });
           }
         }
@@ -46,10 +51,7 @@ export async function uploadImage(
   // If file is a raw Buffer, use upload_stream
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
-      {
-        folder,
-        transformation: [{ quality: "auto", fetch_format: "auto" }],
-      },
+      options,
       (error, result) => {
         if (error) {
           reject(error);
@@ -57,8 +59,8 @@ export async function uploadImage(
           resolve({
             url: result!.secure_url,
             publicId: result!.public_id,
-            width: result!.width,
-            height: result!.height,
+            width: result!.width || 0,
+            height: result!.height || 0,
           });
         }
       }

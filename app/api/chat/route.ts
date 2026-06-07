@@ -46,13 +46,24 @@ export async function POST(request: NextRequest) {
     // Validate mediaUrl is a HTTPS Cloudinary URL if provided
     let finalMediaUrl = mediaUrl;
     if (mediaUrl) {
-      if (mediaUrl.startsWith("data:image/")) {
+      if (mediaUrl.startsWith("data:")) {
         try {
-          const uploadResult = await uploadImage(mediaUrl, "chat");
+          let resourceType: "image" | "video" | "raw" | "auto" = "auto";
+          if (mediaUrl.startsWith("data:image/")) {
+            resourceType = "image";
+          } else if (mediaUrl.startsWith("data:audio/")) {
+            resourceType = "video";
+          } else if (mediaUrl.startsWith("data:video/")) {
+            resourceType = "video";
+          } else {
+            resourceType = "raw";
+          }
+
+          const uploadResult = await uploadImage(mediaUrl, "chat", resourceType);
           finalMediaUrl = uploadResult.url;
         } catch (uploadError) {
-          console.error("Cloudinary chat image upload error:", uploadError);
-          return apiError("Failed to upload image to cloud storage", 500);
+          console.error("Cloudinary chat upload error:", uploadError);
+          return apiError("Failed to upload file to cloud storage", 500);
         }
       } else {
         try {

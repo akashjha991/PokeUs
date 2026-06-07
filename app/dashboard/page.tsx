@@ -2,23 +2,29 @@
 
 import { AppShell } from "@/frontend/components/layouts/AppShell";
 import { useAuthStore } from "@/frontend/store";
-import { getXPLevel, getInitials, formatRelativeTime } from "@/backend/lib/utils";
-import { motion } from "framer-motion";
+import { getXPLevel, getInitials } from "@/backend/lib/utils";
+import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
   MessageCircle, Image, Smile, DollarSign, Calendar, StickyNote,
-  Flame, Star, Bell, Settings, Heart, Zap, Trophy
+  Flame, Star, Bell, Heart, Zap, Trophy, Target, BookOpen,
+  Archive, Gamepad2, BarChart2, Hand, ChevronRight, Send, Clock
 } from "lucide-react";
 
 const QUICK_ACTIONS = [
-  { href: "/chat", icon: MessageCircle, label: "Chat", color: "#d946ef", bg: "rgba(217,70,239,0.15)" },
-  { href: "/memories", icon: Image, label: "Memories", color: "#e11d48", bg: "rgba(225,29,72,0.15)" },
-  { href: "/mood", icon: Smile, label: "Mood", color: "#f59e0b", bg: "rgba(245,158,11,0.15)" },
-  { href: "/expenses", icon: DollarSign, label: "Expenses", color: "#10b981", bg: "rgba(16,185,129,0.15)" },
-  { href: "/calendar", icon: Calendar, label: "Calendar", color: "#3b82f6", bg: "rgba(59,130,246,0.15)" },
-  { href: "/notes", icon: StickyNote, label: "Notes", color: "#8b5cf6", bg: "rgba(139,92,246,0.15)" },
+  { href: "/chat",     icon: MessageCircle, label: "Chat",     color: "#d946ef", bg: "rgba(217,70,239,0.15)" },
+  { href: "/memories", icon: Image,         label: "Memories", color: "#e11d48", bg: "rgba(225,29,72,0.15)" },
+  { href: "/mood",     icon: Smile,         label: "Mood",     color: "#f59e0b", bg: "rgba(245,158,11,0.15)" },
+  { href: "/expenses", icon: DollarSign,    label: "Expenses", color: "#10b981", bg: "rgba(16,185,129,0.15)" },
+  { href: "/calendar", icon: Calendar,      label: "Calendar", color: "#3b82f6", bg: "rgba(59,130,246,0.15)" },
+  { href: "/notes",    icon: StickyNote,    label: "Notes",    color: "#8b5cf6", bg: "rgba(139,92,246,0.15)" },
+  { href: "/goals",    icon: Target,        label: "Goals",    color: "#f59e0b", bg: "rgba(245,158,11,0.15)" },
+  { href: "/journal",  icon: BookOpen,      label: "Journal",  color: "#8b5cf6", bg: "rgba(139,92,246,0.15)" },
+  { href: "/capsule",  icon: Archive,       label: "Capsule",  color: "#6366f1", bg: "rgba(99,102,241,0.15)" },
+  { href: "/games",    icon: Gamepad2,      label: "Games",    color: "#e11d48", bg: "rgba(225,29,72,0.15)" },
+  { href: "/stats",    icon: BarChart2,     label: "Stats",    color: "#10b981", bg: "rgba(16,185,129,0.15)" },
 ];
 
 const MOCK_ACTIVITY: any[] = [];
@@ -30,28 +36,57 @@ export default function DashboardPage() {
 
   const [invites, setInvites] = useState<any[]>([]);
   const [greeting, setGreeting] = useState("Hello");
-  
+
+  // Poke
+  const [pokeEmoji, setPokeEmoji] = useState("👉");
+  const [isSendingPoke, setIsSendingPoke] = useState(false);
+  const [lastPoke, setLastPoke] = useState<any | null>(null);
+
+  // Daily Question
+  const [dailyQ, setDailyQ] = useState<any | null>(null);
+  const [myAnswer, setMyAnswer] = useState("");
+  const [submitted, setSubmitted] = useState(false);
+  const [submittingAnswer, setSubmittingAnswer] = useState(false);
+
+  // Flashback
+  const [flashback, setFlashback] = useState<any | null>(null);
+
   useEffect(() => {
     if (!couple && user) {
       fetch("/api/couple/invite")
         .then(res => res.json())
-        .then(data => {
-          if (data.invites) setInvites(data.invites);
-        })
+        .then(data => { if (data.invites) setInvites(data.invites); })
         .catch(console.error);
     }
   }, [couple, user]);
 
   useEffect(() => {
     const hour = new Date().getHours();
-    if (hour >= 5 && hour < 12) {
-      setGreeting("Good morning");
-    } else if (hour >= 12 && hour < 17) {
-      setGreeting("Good afternoon");
-    } else {
-      setGreeting("Good evening");
-    }
+    if (hour >= 5 && hour < 12) setGreeting("Good morning");
+    else if (hour >= 12 && hour < 17) setGreeting("Good afternoon");
+    else setGreeting("Good evening");
   }, []);
+
+  // Load daily question + flashback if in a couple
+  useEffect(() => {
+    if (!couple) return;
+    fetch("/api/daily-question")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.question) {
+          setDailyQ(d);
+          const mine = d.answers?.find((a: any) => a.userId === d.myUserId);
+          if (mine) { setMyAnswer(mine.answer); setSubmitted(true); }
+        }
+      }).catch(console.error);
+
+    fetch("/api/flashback")
+      .then((r) => r.json())
+      .then((d) => { if (d.memories?.length > 0 || d.moods?.length > 0) setFlashback(d); })
+      .catch(console.error);
+  }, [couple]);
+
+
 
   async function handleAccept(inviteId: string) {
     try {
@@ -86,6 +121,46 @@ export default function DashboardPage() {
     } catch (e) {
       toast.error("Something went wrong");
     }
+  }
+
+  async function sendPoke() {
+    if (isSendingPoke) return;
+    setIsSendingPoke(true);
+    try {
+      const res = await fetch("/api/poke", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ emoji: pokeEmoji }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setLastPoke(data.poke);
+        toast.success(`${pokeEmoji} Poke sent to ${partner?.name}!`);
+      } else {
+        toast.error(data.error || "Failed to poke");
+      }
+    } catch { toast.error("Something went wrong"); }
+    finally { setIsSendingPoke(false); }
+  }
+
+  async function submitAnswer() {
+    if (!myAnswer.trim() || !dailyQ?.question?.id) return;
+    setSubmittingAnswer(true);
+    try {
+      const res = await fetch("/api/daily-question", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ questionId: dailyQ.question.id, answer: myAnswer }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSubmitted(true);
+        toast.success("Answer saved! 💜");
+      } else {
+        toast.error(data.error || "Failed to save answer");
+      }
+    } catch { toast.error("Something went wrong"); }
+    finally { setSubmittingAnswer(false); }
   }
 
   return (
@@ -197,6 +272,79 @@ export default function DashboardPage() {
           </p>
         </div>
 
+        {/* POKE WIDGET — only show when in a couple */}
+        {couple && partner && (
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="card p-4">
+            <div className="flex items-center justify-between mb-3">
+              <p className="font-bold text-sm flex items-center gap-2"><Hand size={16} style={{ color: "#d946ef" }} /> Poke {partner.name}</p>
+              <div className="flex gap-1">
+                {["👉","💜","😘","🔥","💋"].map((e) => (
+                  <button key={e} onClick={() => setPokeEmoji(e)} className="text-xl transition-transform" style={{ transform: pokeEmoji === e ? "scale(1.4)" : "scale(1)", opacity: pokeEmoji !== e ? 0.5 : 1 }}>{e}</button>
+                ))}
+              </div>
+            </div>
+            <button
+              onClick={sendPoke}
+              disabled={isSendingPoke}
+              className="w-full py-3 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-95"
+              style={{ background: "linear-gradient(135deg, #d946ef, #e11d48)", color: "white", opacity: isSendingPoke ? 0.7 : 1 }}
+            >
+              <Send size={16} /> {isSendingPoke ? "Sending..." : `Send a ${pokeEmoji} Poke`}
+            </button>
+            {lastPoke && <p className="text-xs text-center mt-2" style={{ color: "rgb(var(--text-subtle))" }}>Poke sent! 💜</p>}
+          </motion.div>
+        )}
+
+        {/* DAILY QUESTION WIDGET */}
+        {couple && dailyQ?.question && (
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="card p-4">
+            <p className="text-xs font-semibold mb-2 flex items-center gap-2" style={{ color: "#8b5cf6" }}>
+              <Star size={12} /> Daily Question
+            </p>
+            <p className="font-bold text-sm mb-3">{dailyQ.question.question}</p>
+            {submitted ? (
+              <div className="space-y-2">
+                <div className="p-3 rounded-xl" style={{ background: "rgba(217,70,239,0.08)" }}>
+                  <p className="text-xs font-semibold mb-1" style={{ color: "rgb(var(--text-muted))" }}>Your answer</p>
+                  <p className="text-sm">{myAnswer}</p>
+                </div>
+                {dailyQ.answers?.filter((a: any) => a.userId !== dailyQ.myUserId).map((a: any) => (
+                  <div key={a.id} className="p-3 rounded-xl" style={{ background: "rgba(225,29,72,0.07)" }}>
+                    <p className="text-xs font-semibold mb-1" style={{ color: "rgb(var(--text-muted))" }}>{a.user?.name}'s answer</p>
+                    <p className="text-sm">{a.answer}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <input value={myAnswer} onChange={(e) => setMyAnswer(e.target.value)} className="input-field flex-1 py-2 text-sm" placeholder="Your answer..." onKeyDown={(e) => e.key === "Enter" && submitAnswer()} />
+                <button onClick={submitAnswer} disabled={submittingAnswer || !myAnswer.trim()} className="btn-brand px-4 py-2 text-sm flex-shrink-0">
+                  {submittingAnswer ? "..." : <Send size={14} />}
+                </button>
+              </div>
+            )}
+          </motion.div>
+        )}
+
+        {/* FLASHBACK WIDGET */}
+        {flashback?.memories?.[0] && (
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="card p-4">
+            <p className="text-xs font-semibold mb-3 flex items-center gap-2" style={{ color: "#f59e0b" }}>
+              <Clock size={12} /> This Day Last Year
+            </p>
+            {flashback.memories[0].photos?.[0]?.url && (
+              <div className="h-28 rounded-2xl overflow-hidden mb-3">
+                <img src={flashback.memories[0].photos[0].url} alt="" className="w-full h-full object-cover" />
+              </div>
+            )}
+            <p className="font-bold text-sm">{flashback.memories[0].title}</p>
+            {flashback.memories[0].caption && <p className="text-xs mt-1" style={{ color: "rgb(var(--text-muted))" }}>{flashback.memories[0].caption}</p>}
+            <Link href="/memories" className="text-xs mt-2 flex items-center gap-1" style={{ color: "#d946ef" }}>
+              View all memories <ChevronRight size={12} />
+            </Link>
+          </motion.div>
+        )}
+
         {/* QUICK ACTIONS */}
         <div>
           <h2 className="font-display font-bold text-base mb-3">Quick Access</h2>
@@ -206,7 +354,7 @@ export default function DashboardPage() {
                 key={action.href}
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: i * 0.05 }}
+                transition={{ delay: i * 0.04 }}
               >
                 <Link
                   href={action.href}

@@ -40,6 +40,13 @@ model User {
   badges            UserBadge[]
   xpLogs            XPLog[]
   pushSubscriptions PushSubscription[]
+  // New feature relations
+  pokesSent         Poke[]          @relation("PokeSender")
+  pokesReceived     Poke[]          @relation("PokeReceiver")
+  questionAnswers   QuestionAnswer[]
+  goals             Goal[]
+  journalEntries    JournalEntry[]
+  timeCapsules      TimeCapsule[]
 
   @@index([email])
   @@index([clerkId])
@@ -61,13 +68,20 @@ model Couple {
   updatedAt    DateTime @updatedAt
 
   // Relations
-  messages     Message[]
-  memories     Memory[]
-  moods        MoodEntry[]
-  notes        Note[]
-  todos        TodoItem[]
-  expenses     Expense[]
-  events       CalendarEvent[]
+  messages        Message[]
+  memories        Memory[]
+  moods           MoodEntry[]
+  notes           Note[]
+  todos           TodoItem[]
+  expenses        Expense[]
+  events          CalendarEvent[]
+  // New feature relations
+  pokes           Poke[]
+  questionAnswers QuestionAnswer[]
+  goals           Goal[]
+  journalEntries  JournalEntry[]
+  timeCapsules    TimeCapsule[]
+  gameSessions    GameSession[]
 
   @@unique([user1Id, user2Id])
   @@index([user1Id])
@@ -343,5 +357,185 @@ model PushSubscription {
 
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@index([userId])
+}
+
+// ============================================================
+// POKE
+// ============================================================
+
+model Poke {
+  id        String   @id @default(cuid())
+  coupleId  String
+  fromId    String
+  toId      String
+  emoji     String   @default("👉")
+  message   String?
+  seenAt    DateTime?
+  createdAt DateTime @default(now())
+
+  couple Couple @relation(fields: [coupleId], references: [id], onDelete: Cascade)
+  from   User   @relation("PokeSender",   fields: [fromId], references: [id])
+  to     User   @relation("PokeReceiver", fields: [toId],   references: [id])
+
+  @@index([coupleId])
+  @@index([toId])
+}
+
+// ============================================================
+// DAILY QUESTION
+// ============================================================
+
+model DailyQuestion {
+  id        String   @id @default(cuid())
+  question  String
+  category  String   @default("GENERAL")
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  answers QuestionAnswer[]
+}
+
+model QuestionAnswer {
+  id         String   @id @default(cuid())
+  coupleId   String
+  userId     String
+  questionId String
+  answer     String   @db.Text
+  date       DateTime @default(dbgenerated("CURRENT_DATE")) @db.Date
+  createdAt  DateTime @default(now())
+
+  couple   Couple        @relation(fields: [coupleId],   references: [id], onDelete: Cascade)
+  user     User          @relation(fields: [userId],     references: [id])
+  question DailyQuestion @relation(fields: [questionId], references: [id])
+
+  @@unique([userId, questionId, date])
+  @@index([coupleId])
+  @@index([userId])
+}
+
+// ============================================================
+// GOALS / BUCKET LIST
+// ============================================================
+
+model Goal {
+  id          String       @id @default(cuid())
+  coupleId    String
+  createdById String
+  title       String
+  description String?
+  category    GoalCategory @default(ADVENTURE)
+  emoji       String       @default("🎯")
+  targetDate  DateTime?
+  isCompleted Boolean      @default(false)
+  completedAt DateTime?
+  photoUrl    String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  couple    Couple @relation(fields: [coupleId],    references: [id], onDelete: Cascade)
+  createdBy User   @relation(fields: [createdById], references: [id])
+
+  @@index([coupleId])
+}
+
+enum GoalCategory {
+  ADVENTURE
+  TRAVEL
+  FOOD
+  HEALTH
+  RELATIONSHIP
+  LEARNING
+  OTHER
+}
+
+// ============================================================
+// SHARED JOURNAL
+// ============================================================
+
+model JournalEntry {
+  id          String   @id @default(cuid())
+  coupleId    String
+  createdById String
+  title       String
+  content     String   @db.Text
+  mood        String?
+  photoUrl    String?
+  isPrivate   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  couple    Couple @relation(fields: [coupleId],    references: [id], onDelete: Cascade)
+  createdBy User   @relation(fields: [createdById], references: [id])
+
+  @@index([coupleId])
+  @@index([createdAt])
+}
+
+// ============================================================
+// TIME CAPSULE
+// ============================================================
+
+model TimeCapsule {
+  id          String   @id @default(cuid())
+  coupleId    String
+  createdById String
+  title       String
+  message     String   @db.Text
+  revealDate  DateTime
+  isRevealed  Boolean  @default(false)
+  revealedAt  DateTime?
+  photoUrl    String?
+  createdAt   DateTime @default(now())
+
+  couple    Couple @relation(fields: [coupleId],    references: [id], onDelete: Cascade)
+  createdBy User   @relation(fields: [createdById], references: [id])
+
+  @@index([coupleId])
+  @@index([revealDate])
+}
+
+// ============================================================
+// RELATIONSHIP GAME
+// ============================================================
+
+model GameSession {
+  id        String     @id @default(cuid())
+  coupleId  String
+  gameType  GameType   @default(WOULD_YOU_RATHER)
+  status    GameStatus @default(WAITING)
+  score1    Int        @default(0)
+  score2    Int        @default(0)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  couple Couple      @relation(fields: [coupleId], references: [id], onDelete: Cascade)
+  rounds GameRound[]
+
+  @@index([coupleId])
+}
+
+model GameRound {
+  id        String   @id @default(cuid())
+  sessionId String
+  question  String
+  optionA   String?
+  optionB   String?
+  answer1   String?
+  answer2   String?
+  createdAt DateTime @default(now())
+
+  session GameSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+}
+
+enum GameType {
+  WOULD_YOU_RATHER
+  COUPLES_QUIZ
+  TRUTH_OR_DARE
+}
+
+enum GameStatus {
+  WAITING
+  IN_PROGRESS
+  COMPLETED
 }
 

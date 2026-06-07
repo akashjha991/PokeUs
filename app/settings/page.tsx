@@ -57,7 +57,7 @@ export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
   const { logout, couple, setCouple } = useAuthStore();
   const { colorTheme, setColorTheme } = useUIStore();
-  const { signOut } = useClerk();
+  const { signOut, openUserProfile } = useClerk();
   const isDark = theme === "dark";
 
   const [isPushSupported, setIsPushSupported] = useState(false);
@@ -214,18 +214,6 @@ export default function SettingsPage() {
             <h1 className="font-display font-bold text-2xl">Settings</h1>
             <p className="text-sm" style={{ color: "rgb(var(--text-muted))" }}>Personalize your experience</p>
           </div>
-          <button 
-            onClick={handleLogout} 
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer hover:bg-white/5" 
-            style={{ 
-              color: "#f59e0b",
-              borderColor: "rgba(245,158,11,0.2)",
-              background: "rgba(245,158,11,0.05)"
-            }}
-          >
-            <LogOut size={14} />
-            <span>Sign Out</span>
-          </button>
         </div>
 
         <div>
@@ -286,11 +274,13 @@ export default function SettingsPage() {
         <div>
           <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "rgb(var(--text-subtle))" }}>Privacy & Security</p>
           <div className="space-y-2">
-            <SettingRow
-              icon={<Shield size={18} style={{ color: "#10b981" }} />}
-              label="Change Password"
-              desc="Update your account password"
-            />
+            <button onClick={() => openUserProfile()} className="w-full text-left transition-all active:scale-[0.99]">
+              <SettingRow
+                icon={<Shield size={18} style={{ color: "#10b981" }} />}
+                label="Change Password"
+                desc="Update your account password"
+              />
+            </button>
             <Link href="/privacy" className="block">
               <SettingRow
                 icon={<Globe size={18} style={{ color: "#3b82f6" }} />}
@@ -303,15 +293,7 @@ export default function SettingsPage() {
         <div>
           <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "rgb(var(--text-subtle))" }}>Danger Zone</p>
           <div className="space-y-2">
-            <button onClick={handleLogout} className="card w-full flex items-center gap-3 p-4 text-left">
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "rgba(245,158,11,0.1)" }}>
-                <LogOut size={18} style={{ color: "#f59e0b" }} />
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-semibold" style={{ color: "#f59e0b" }}>Sign Out</p>
-                <p className="text-xs" style={{ color: "rgb(var(--text-subtle))" }}>Log out of this device</p>
-              </div>
-            </button>
+
             {couple && (
               <button onClick={handleRemoveConnection} className="card w-full flex items-center gap-3 p-4 text-left">
                 <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "rgba(239,68,68,0.1)" }}>

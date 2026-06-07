@@ -81,50 +81,72 @@ export default function ProfilePage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Downscale and compress the image using HTML5 Canvas to prevent storing huge Base64 strings
-    const img = new Image();
-    img.src = URL.createObjectURL(file);
-    img.onload = async () => {
-      try {
-        const canvas = document.createElement("canvas");
-        const ctx = canvas.getContext("2d");
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select an image file");
+      return;
+    }
 
-        // Target profile square size: 256x256
-        const targetSize = 256;
-        canvas.width = targetSize;
-        canvas.height = targetSize;
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Image must be smaller than 10MB");
+      return;
+    }
 
-        // Draw cropped center square
-        if (ctx) {
-          const minDim = Math.min(img.width, img.height);
-          const sx = (img.width - minDim) / 2;
-          const sy = (img.height - minDim) / 2;
-          ctx.drawImage(img, sx, sy, minDim, minDim, 0, 0, targetSize, targetSize);
-        }
+    const uploadToast = toast.loading("Uploading profile picture...");
 
-        const base64Avatar = canvas.toDataURL("image/jpeg", 0.8);
+    try {
+      // Use FileReader to get base64 — works reliably on all mobile formats
+      const base64Avatar = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result as string;
+          // Downscale via canvas for smaller payload
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement("canvas");
+            const targetSize = 256;
+            canvas.width = targetSize;
+            canvas.height = targetSize;
+            const ctx = canvas.getContext("2d");
+            if (ctx) {
+              const minDim = Math.min(img.width, img.height);
+              const sx = (img.width - minDim) / 2;
+              const sy = (img.height - minDim) / 2;
+              ctx.drawImage(img, sx, sy, minDim, minDim, 0, 0, targetSize, targetSize);
+            }
+            resolve(canvas.toDataURL("image/jpeg", 0.8));
+          };
+          img.onerror = () => reject(new Error("Could not decode image"));
+          img.src = result;
+        };
+        reader.onerror = () => reject(new Error("Could not read file"));
+        reader.readAsDataURL(file);
+      });
 
-        const res = await fetch("/api/user/profile", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: user?.name, bio: user?.bio, avatar: base64Avatar }),
-        });
+      const res = await fetch("/api/user/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: user?.name, bio: user?.bio, avatar: base64Avatar }),
+      });
 
-        const data = await res.json();
-        if (res.ok) {
-          setUser(data.user);
-          toast.success("Profile picture updated! 📸");
-        } else {
-          toast.error(data.error || "Failed to update picture");
-        }
-      } catch (err) {
-        console.error("Avatar compression error:", err);
-        toast.error("Failed to process image");
+      const data = await res.json();
+      toast.dismiss(uploadToast);
+
+      if (res.ok) {
+        setUser(data.user);
+        toast.success("Profile picture updated! 📸");
+      } else {
+        toast.error(data.error || "Failed to update picture");
       }
-    };
-    img.onerror = () => {
-      toast.error("Failed to load image file");
-    };
+    } catch (err: any) {
+      toast.dismiss(uploadToast);
+      console.error("Avatar upload error:", err);
+      toast.error(err.message || "Failed to process image");
+    }
+
+    // Reset input so the same file can be re-selected
+    e.target.value = "";
   }
 
   async function handleSaveProfile() {

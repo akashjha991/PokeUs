@@ -302,6 +302,17 @@ export default function ChatPage() {
 
   // Start recording voice note
   async function startRecording() {
+    // Check if context is secure (getUserMedia requires HTTPS or localhost)
+    if (typeof window !== "undefined" && !window.isSecureContext) {
+      toast.error("Microphone requires a secure connection (HTTPS or localhost) 🔐");
+      return;
+    }
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      toast.error("Voice messaging is not supported in this browser context 🎤");
+      return;
+    }
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaRecorder = new MediaRecorder(stream);
@@ -335,9 +346,13 @@ export default function ChatPage() {
         setRecordingDuration((prev) => prev + 1);
       }, 1000);
       toast.success("Voice recording started 🎙️");
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to start recording:", err);
-      toast.error("Could not access microphone 🎤");
+      if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
+        toast.error("Microphone permission denied. Please enable microphone access in browser settings 🚫");
+      } else {
+        toast.error("Could not access microphone 🎤");
+      }
     }
   }
 

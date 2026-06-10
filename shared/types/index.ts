@@ -144,3 +144,6 @@ export interface PaginatedResponse<T> {
   limit: number;
   hasMore: boolean;
 }
+
+export * from "./wrapped";
+

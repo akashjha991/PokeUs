@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { Sparkles, Share2, RefreshCw, Star, Lightbulb, Trophy, Heart, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthStore } from "@/frontend/store";
+import { ScrapbookCard } from "@/frontend/components/ScrapbookCard";
 
 // ─── Score Ring ──────────────────────────────────────────────────────────────
 function ScoreRing({ score }: { score: number }) {
@@ -313,6 +314,30 @@ export default function WrappedPage() {
             <Share2 size={18} />
             Share Our Wrapped 💜
           </button>
+        </motion.div>
+
+        {/* Scrapbook Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.7 }}
+          className="space-y-3"
+        >
+          <div className="flex items-center gap-2 mb-1">
+            <div className="h-px flex-1" style={{ background: "rgb(var(--border))" }} />
+            <p className="text-xs font-bold uppercase tracking-wider px-2" style={{ color: "rgb(var(--text-muted))" }}>✦ Shareable Card ✦</p>
+            <div className="h-px flex-1" style={{ background: "rgb(var(--border))" }} />
+          </div>
+          <ScrapbookCard
+            userName={user?.name ?? "You"}
+            userAvatar={user?.avatar}
+            partnerName={(couple?.user1?.id === user?.id ? couple?.user2?.name : couple?.user1?.name) ?? "Partner"}
+            partnerAvatar={couple?.user1?.id === user?.id ? couple?.user2?.avatar : couple?.user1?.avatar}
+            weekRange={weekRange}
+            score={wrapped.relationshipScore ?? 80}
+            headline={wrapped.headline ?? ""}
+            highlights={wrapped.highlights ?? []}
+          />
         </motion.div>
       </div>
     </AppShell>

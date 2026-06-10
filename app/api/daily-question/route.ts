@@ -11,27 +11,37 @@ export async function GET(request: NextRequest) {
   const { prismaUserId, coupleId } = auth.context;
 
   try {
-    // Pick a deterministic question for today using day-of-year
-    const now = new Date();
-    const start = new Date(now.getFullYear(), 0, 0);
-    const dayOfYear = Math.floor((now.getTime() - start.getTime()) / 86400000);
-    const q = DAILY_QUESTIONS[dayOfYear % DAILY_QUESTIONS.length];
-
-    // Get or create the DailyQuestion record
-    let question = await prisma.dailyQuestion.findFirst({
-      where: { question: q.question },
-    });
-    if (!question) {
-      question = await prisma.dailyQuestion.create({
-        data: { question: q.question, category: q.category },
-      });
-    }
-
-    // Get today's answers for this couple
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
+
+    // Look for a custom question proposed today for this couple
+    let question = await prisma.dailyQuestion.findFirst({
+      where: {
+        category: `CUSTOM_${coupleId}`,
+        createdAt: { gte: today, lt: tomorrow },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (!question) {
+      // Pick a deterministic question for today using day-of-year
+      const now = new Date();
+      const start = new Date(now.getFullYear(), 0, 0);
+      const dayOfYear = Math.floor((now.getTime() - start.getTime()) / 86400000);
+      const q = DAILY_QUESTIONS[dayOfYear % DAILY_QUESTIONS.length];
+
+      // Get or create the DailyQuestion record
+      question = await prisma.dailyQuestion.findFirst({
+        where: { question: q.question },
+      });
+      if (!question) {
+        question = await prisma.dailyQuestion.create({
+          data: { question: q.question, category: q.category },
+        });
+      }
+    }
 
     const answers = await prisma.questionAnswer.findMany({
       where: {

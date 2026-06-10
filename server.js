@@ -189,6 +189,14 @@ app.prepare().then(() => {
       socket.to(socket.coupleId).emit("receive_poke", data);
     });
 
+    // Relay custom questions
+    socket.on("ask_question", (data) => {
+      if (!socket.coupleId || data.coupleId !== socket.coupleId) {
+        return socket.emit("error_msg", "Unauthorized room transmission");
+      }
+      socket.to(socket.coupleId).emit("receive_question", data);
+    });
+
     // Relay message read receipts
     socket.on("messages_read", (data) => {
       if (!socket.coupleId || data.coupleId !== socket.coupleId) {

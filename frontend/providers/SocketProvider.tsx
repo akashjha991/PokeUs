@@ -97,6 +97,18 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
         });
       });
 
+      socketInstance.on("receive_question", (data: any) => {
+        toast(`💡 New Question from ${data.senderName || "partner"}!`, {
+          description: `"${data.question}"`,
+          action: {
+            label: "Answer",
+            onClick: () => {
+              window.location.href = "/dashboard";
+            },
+          },
+        });
+      });
+
       socketInstance.on("online_users", (users: string[]) => {
         setOnlineUsers(users);
       });

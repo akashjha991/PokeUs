@@ -50,6 +50,11 @@ export default function DashboardPage() {
   const [submitted, setSubmitted] = useState(false);
   const [submittingAnswer, setSubmittingAnswer] = useState(false);
 
+  // Custom Question
+  const [showCustomAsk, setShowCustomAsk] = useState(false);
+  const [customQuestion, setCustomQuestion] = useState("");
+  const [isSubmittingCustom, setIsSubmittingCustom] = useState(false);
+
   // Flashback
   const [flashback, setFlashback] = useState<any | null>(null);
 
@@ -72,18 +77,63 @@ export default function DashboardPage() {
   // Activities
   const [activities, setActivities] = useState<any[]>([]);
 
+  async function loadDailyQuestion() {
+    if (!couple) return;
+    try {
+      const r = await fetch("/api/daily-question");
+      const d = await r.json();
+      if (r.ok && d.question) {
+        setDailyQ(d);
+        const mine = d.answers?.find((a: any) => a.userId === d.myUserId);
+        if (mine) {
+          setMyAnswer(mine.answer);
+          setSubmitted(true);
+        } else {
+          setMyAnswer("");
+          setSubmitted(false);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  async function handleAskCustom() {
+    if (!customQuestion.trim()) return;
+    setIsSubmittingCustom(true);
+    try {
+      const res = await fetch("/api/daily-question/custom", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question: customQuestion }),
+      });
+      if (res.ok) {
+        toast.success("Question proposed! 💡");
+        if (couple && socket) {
+          socket.emit("ask_question", {
+            question: customQuestion,
+            coupleId: couple.id,
+            senderName: user?.name,
+          });
+        }
+        setCustomQuestion("");
+        setShowCustomAsk(false);
+        await loadDailyQuestion();
+      } else {
+        const data = await res.json();
+        toast.error(data.error || "Failed to submit question");
+      }
+    } catch {
+      toast.error("Something went wrong");
+    } finally {
+      setIsSubmittingCustom(false);
+    }
+  }
+
   // Load daily question + flashback + activities if in a couple
   useEffect(() => {
     if (!couple) return;
-    fetch("/api/daily-question")
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.question) {
-          setDailyQ(d);
-          const mine = d.answers?.find((a: any) => a.userId === d.myUserId);
-          if (mine) { setMyAnswer(mine.answer); setSubmitted(true); }
-        }
-      }).catch(console.error);
+    loadDailyQuestion();
 
     fetch("/api/flashback")
       .then((r) => r.json())
@@ -341,6 +391,42 @@ export default function DashboardPage() {
                 </button>
               </div>
             )}
+
+            {/* Ask custom question toggle/input */}
+            <div className="mt-3 pt-3 border-t border-white/10 flex flex-col gap-2">
+              {showCustomAsk ? (
+                <div className="flex gap-2">
+                  <input
+                    value={customQuestion}
+                    onChange={(e) => setCustomQuestion(e.target.value)}
+                    className="input-field flex-1 py-1 px-3 text-xs"
+                    placeholder="Type a custom question..."
+                    onKeyDown={(e) => e.key === "Enter" && handleAskCustom()}
+                  />
+                  <button
+                    onClick={handleAskCustom}
+                    disabled={isSubmittingCustom || !customQuestion.trim()}
+                    className="btn-brand px-3 py-1 text-xs flex-shrink-0"
+                  >
+                    {isSubmittingCustom ? "..." : "Ask"}
+                  </button>
+                  <button
+                    onClick={() => setShowCustomAsk(false)}
+                    className="px-2 py-1 text-xs rounded-xl hover:bg-white/5 text-slate-400"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowCustomAsk(true)}
+                  className="text-xs text-left font-medium flex items-center gap-1 hover:underline text-brand-400"
+                  style={{ color: "rgb(var(--brand))" }}
+                >
+                  💡 Ask a custom question instead
+                </button>
+              )}
+            </div>
           </motion.div>
         )}
 

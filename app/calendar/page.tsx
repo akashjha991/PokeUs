@@ -2,9 +2,10 @@
 
 import { AppShell } from "@/frontend/components/layouts/AppShell";
 import { motion } from "framer-motion";
-import { useState } from "react";
-import { Plus, X, Heart, Calendar as CalIcon, Star, Plane, Flag, Gift } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Plus, X, Heart, Calendar as CalIcon, Star, Plane, Flag, Gift, Trash2 } from "lucide-react";
 import { formatDate } from "@/backend/lib/utils";
+import { toast } from "sonner";
 
 const EVENT_ICONS: Record<string, React.ReactNode> = {
   ANNIVERSARY: <Heart size={16} className="text-rose-400 fill-rose-400" />,
@@ -24,27 +25,94 @@ const EVENT_COLORS: Record<string, string> = {
   OTHER: "#6b7280",
 };
 
-const MOCK_EVENTS: any[] = [];
-
-function getDaysUntil(dateStr: string): number {
+function getDaysUntil(dateStr: string | Date): number {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const target = new Date(dateStr);
+  target.setHours(0, 0, 0, 0);
   const diff = Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
   return diff;
 }
 
 export default function CalendarPage() {
+  const [events, setEvents] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
   const [showAdd, setShowAdd] = useState(false);
   const [title, setTitle] = useState("");
   const [date, setDate] = useState("");
   const [eventType, setEventType] = useState("DATE");
 
-  const sorted = [...MOCK_EVENTS].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  useEffect(() => {
+    async function loadEvents() {
+      try {
+        const res = await fetch("/api/calendar");
+        const data = await res.json();
+        if (res.ok && data.events) {
+          setEvents(data.events);
+        } else {
+          toast.error("Failed to load events");
+        }
+      } catch (error) {
+        console.error("Fetch calendar events error:", error);
+        toast.error("Something went wrong");
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadEvents();
+  }, []);
+
+  async function handleAddEvent() {
+    if (!title.trim() || !date) {
+      toast.error("Title and date are required");
+      return;
+    }
+    try {
+      const res = await fetch("/api/calendar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title,
+          date,
+          eventType,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setEvents((prev) => [...prev, data.event].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
+        setTitle("");
+        setDate("");
+        setEventType("DATE");
+        setShowAdd(false);
+        toast.success("Event saved! 📅");
+      } else {
+        toast.error(data.error || "Failed to save event");
+      }
+    } catch {
+      toast.error("Something went wrong");
+    }
+  }
+
+  async function handleDeleteEvent(id: string) {
+    try {
+      const res = await fetch(`/api/calendar/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        setEvents((prev) => prev.filter((e) => e.id !== id));
+        toast.success("Event deleted");
+      } else {
+        toast.error("Failed to delete event");
+      }
+    } catch {
+      toast.error("Something went wrong");
+    }
+  }
+
+  const sorted = [...events].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   return (
     <AppShell>
-      <div className="px-4 pt-6 pb-4 space-y-5" style={{ color: "rgb(var(--text))" }}>
+      <div className="px-4 pt-6 pb-24 space-y-5" style={{ color: "rgb(var(--text))" }}>
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -57,45 +125,67 @@ export default function CalendarPage() {
         </div>
 
         {/* Upcoming Events */}
-        <div className="space-y-3">
-          {sorted.map((event, i) => {
-            const days = getDaysUntil(event.date);
-            const color = EVENT_COLORS[event.eventType];
-            return (
-              <motion.div
-                key={event.id}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.08 }}
-                className="card flex items-center gap-4 p-4"
-              >
-                <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0"
-                  style={{ background: `${color}15`, border: `1px solid ${color}25` }}>
-                  {EVENT_ICONS[event.eventType]}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-sm truncate">{event.title}</p>
-                  <p className="text-xs" style={{ color: "rgb(var(--text-muted))" }}>{formatDate(event.date)}</p>
-                  {event.isRecurring && (
-                    <span className="text-xs" style={{ color: "rgb(var(--text-subtle))" }}>↺ Recurring yearly</span>
-                  )}
-                </div>
-                <div className="flex-shrink-0 text-right">
-                  {days > 0 ? (
-                    <>
-                      <p className="font-bold text-lg" style={{ color }}>{days}</p>
-                      <p className="text-xs" style={{ color: "rgb(var(--text-subtle))" }}>days left</p>
-                    </>
-                  ) : days === 0 ? (
-                    <span className="badge-pill text-xs" style={{ background: `${color}20`, color, borderColor: `${color}30` }}>Today! 🎉</span>
-                  ) : (
-                    <p className="text-xs" style={{ color: "rgb(var(--text-subtle))" }}>Past</p>
-                  )}
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
+        {loading ? (
+          <div className="flex justify-center py-12">
+            <div className="w-8 h-8 border-4 border-t-transparent rounded-full animate-spin" style={{ borderColor: "rgb(var(--brand))", borderTopColor: "transparent" }}></div>
+          </div>
+        ) : sorted.length === 0 ? (
+          <div className="card p-8 text-center" style={{ color: "rgb(var(--text-muted))" }}>
+            <CalIcon size={28} className="mx-auto mb-2 opacity-50" />
+            <p className="text-sm font-medium">No events yet</p>
+            <p className="text-xs">Add a date, trip, or milestone to count down together!</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {sorted.map((event, i) => {
+              const days = getDaysUntil(event.date);
+              const color = EVENT_COLORS[event.eventType];
+              return (
+                <motion.div
+                  key={event.id}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.08 }}
+                  className="card flex items-center justify-between gap-4 p-4"
+                >
+                  <div className="flex items-center gap-4 min-w-0">
+                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0"
+                      style={{ background: `${color}15`, border: `1px solid ${color}25` }}>
+                      {EVENT_ICONS[event.eventType]}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-semibold text-sm truncate">{event.title}</p>
+                      <p className="text-xs" style={{ color: "rgb(var(--text-muted))" }}>{formatDate(event.date)}</p>
+                      {event.isRecurring && (
+                        <span className="text-xs" style={{ color: "rgb(var(--text-subtle))" }}>↺ Recurring yearly</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex-shrink-0 text-right flex items-center gap-3">
+                    <div>
+                      {days > 0 ? (
+                        <>
+                          <p className="font-bold text-lg" style={{ color }}>{days}</p>
+                          <p className="text-xs" style={{ color: "rgb(var(--text-subtle))" }}>days left</p>
+                        </>
+                      ) : days === 0 ? (
+                        <span className="badge-pill text-xs" style={{ background: `${color}20`, color, borderColor: `${color}30` }}>Today! 🎉</span>
+                      ) : (
+                        <p className="text-xs" style={{ color: "rgb(var(--text-subtle))" }}>Past</p>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => handleDeleteEvent(event.id)}
+                      className="p-1.5 hover:bg-red-500/10 rounded-lg text-red-500 transition-colors"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* ADD EVENT MODAL */}
@@ -137,7 +227,7 @@ export default function CalendarPage() {
                 </button>
               ))}
             </div>
-            <button className="btn-brand w-full justify-center py-3">
+            <button onClick={handleAddEvent} className="btn-brand w-full justify-center py-3">
               <CalIcon size={16} /> Save Event
             </button>
           </motion.div>

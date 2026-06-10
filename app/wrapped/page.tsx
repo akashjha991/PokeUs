@@ -304,53 +304,6 @@ export default function WrappedPage() {
             Copy Image URL
           </button>
         </div>
-
-        {/* Weekly Narrative and Stats */}
-        <div className="space-y-4 pt-4">
-          <div className="h-px bg-white/10" />
-          <p className="text-xs font-bold uppercase tracking-wider text-purple-300 flex items-center gap-2">
-            📖 This Week's Narrative
-          </p>
-
-          {/* AI Diary story detail */}
-          <div 
-            className="bg-white/5 border border-white/10 rounded-3xl p-5 space-y-3"
-            style={{ borderLeft: "4px solid #d946ef" }}
-          >
-            <p className="text-xs font-bold uppercase tracking-widest text-[#d946ef] flex items-center gap-1.5">
-              <BookOpen size={12} /> Chapter Summary
-            </p>
-            <h3 className="font-bold text-md text-white">&ldquo;{aiSummary.title}&rdquo;</h3>
-            <p className="text-sm text-[#B0A5D0] leading-relaxed">
-              {aiSummary.story}
-            </p>
-          </div>
-
-          {/* Unlocked Achievement */}
-          <div 
-            className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 rounded-3xl p-5 flex items-center gap-4"
-          >
-            <div className="w-12 h-12 rounded-2xl bg-amber-500/20 flex items-center justify-center flex-shrink-0">
-              <Trophy className="w-6 h-6 text-amber-400" />
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-amber-400">Relationship Achievement</p>
-              <p className="font-bold text-sm text-white mt-0.5">{aiSummary.achievement}</p>
-            </div>
-          </div>
-
-          {/* Connection Insight */}
-          <div 
-            className="bg-white/5 border border-white/10 rounded-3xl p-5 space-y-2"
-          >
-            <p className="text-xs font-bold uppercase tracking-wider text-[#8b5cf6] flex items-center gap-1.5">
-              <Lightbulb size={12} /> Weekly Insight
-            </p>
-            <p className="text-sm text-[#B0A5D0] leading-relaxed">
-              {aiSummary.insight}
-            </p>
-          </div>
-        </div>
       </div>
     </AppShell>
   );

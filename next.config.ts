@@ -16,6 +16,7 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "img.clerk.com" },
     ],
   },
+  serverExternalPackages: ["@resvg/resvg-js"],
   experimental: {
     serverActions: { allowedOrigins },
   },

@@ -2,6 +2,7 @@
 
 import { AppShell } from "@/frontend/components/layouts/AppShell";
 import { useAuthStore } from "@/frontend/store";
+import { useSocket } from "@/frontend/providers/SocketProvider";
 import { getXPLevel, getInitials } from "@/backend/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
@@ -31,6 +32,7 @@ const MOCK_ACTIVITY: any[] = [];
 
 export default function DashboardPage() {
   const { user, couple, setCouple } = useAuthStore();
+  const { socket } = useSocket();
   const partner = couple ? (couple.user1.id === user?.id ? couple.user2 : couple.user1) : null;
   const xpInfo = getXPLevel(user?.xpPoints || 0);
 
@@ -144,6 +146,14 @@ export default function DashboardPage() {
       if (res.ok) {
         setLastPoke(data.poke);
         toast.success(`${pokeEmoji} Poke sent to ${partner?.name}!`);
+        if (couple) {
+          socket?.emit("send_poke", {
+            poke: data.poke,
+            coupleId: couple.id,
+            senderName: user?.name,
+            emoji: pokeEmoji,
+          });
+        }
       } else {
         toast.error(data.error || "Failed to poke");
       }

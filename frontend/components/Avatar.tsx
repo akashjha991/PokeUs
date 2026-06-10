@@ -14,6 +14,7 @@ interface AvatarProps {
   glow?: boolean;
   floating?: boolean;
   borderClass?: string; // e.g. "border-2 border-violet-500/50"
+  onClick?: () => void;
 }
 
 export function Avatar({
@@ -26,6 +27,7 @@ export function Avatar({
   glow = false,
   floating = false,
   borderClass = "",
+  onClick,
 }: AvatarProps) {
   const containerVariants = {
     initial: { opacity: 0, scale: 0.8 },
@@ -53,6 +55,7 @@ export function Avatar({
     glow ? "shadow-[0_0_40px_rgba(124,58,237,0.45)]" : "",
     gradientBorder ? "bg-gradient-to-r from-violet-600 to-pink-500 p-[3px]" : "",
     !gradientBorder && borderClass ? `p-[2px] ${borderClass}` : "",
+    onClick ? "cursor-pointer" : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -62,7 +65,8 @@ export function Avatar({
       variants={containerVariants}
       initial="initial"
       animate="animate"
-      whileTap={{ scale: editable ? 0.95 : 1 }}
+      whileTap={{ scale: onClick || editable ? 0.95 : 1 }}
+      onClick={onClick}
       className={containerClasses}
       style={{ width: `${size}px`, height: `${size}px` }}
     >
@@ -85,7 +89,10 @@ export function Avatar({
       {/* Overlapping camera icon for profile editing */}
       {editable && (
         <button
-          onClick={onEditClick}
+          onClick={(e) => {
+            e.stopPropagation();
+            onEditClick?.();
+          }}
           type="button"
           className="absolute bottom-0 right-0 w-9 h-9 rounded-full bg-gradient-to-r from-violet-600 to-pink-500 border-2 border-white dark:border-[#0f0b1f] flex items-center justify-center shadow-lg hover:brightness-110 hover:scale-105 active:scale-95 transition-all duration-200 z-20 cursor-pointer"
         >

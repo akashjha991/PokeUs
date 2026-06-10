@@ -4,6 +4,7 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import { io, Socket } from "socket.io-client";
 import { useAuthStore, useNotificationStore } from "@/frontend/store";
 import { useAuth } from "@clerk/nextjs";
+import { toast } from "sonner";
 
 interface SocketContextType {
   socket: Socket | null;
@@ -60,6 +61,40 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
         if (window.location.pathname !== "/chat") {
           incrementUnread();
         }
+      });
+
+      socketInstance.on("receive_poke", (data: any) => {
+        const pokeEmoji = data.emoji || "👉";
+        const senderName = data.senderName || "Your partner";
+        const message = data.message;
+        
+        toast(`${pokeEmoji} Poke from ${senderName}!`, {
+          description: message || `Your partner sent you a ${pokeEmoji} poke.`,
+          action: {
+            label: "Poke Back",
+            onClick: async () => {
+              try {
+                const res = await fetch("/api/poke", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ emoji: pokeEmoji }),
+                });
+                const responseData = await res.json();
+                if (res.ok && socketInstance) {
+                  toast.success(`Poke sent back!`);
+                  socketInstance.emit("send_poke", {
+                    poke: responseData.poke,
+                    coupleId: couple.id,
+                    senderName: user?.name,
+                    emoji: pokeEmoji,
+                  });
+                }
+              } catch (e) {
+                console.error("Failed to poke back:", e);
+              }
+            }
+          }
+        });
       });
 
       socketInstance.on("online_users", (users: string[]) => {

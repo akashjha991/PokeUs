@@ -8,7 +8,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
-  MessageCircle, Heart, Zap, Flame, Trophy, Bell, ArrowLeft
+  MessageCircle, Heart, Zap, Flame, Trophy, Bell, ArrowLeft, Hand
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -20,18 +20,32 @@ export default function NotificationsPage() {
   const xpInfo = getXPLevel(user?.xpPoints || 0);
 
   const [invites, setInvites] = useState<any[]>([]);
+  const [unseenPokes, setUnseenPokes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
   useEffect(() => {
-    if (!couple && user) {
+    const fetchData = async () => {
       setLoading(true);
-      fetch("/api/couple/invite")
-        .then(res => res.json())
-        .then(data => {
+      try {
+        if (!couple && user) {
+          const res = await fetch("/api/couple/invite");
+          const data = await res.json();
           if (data.invites) setInvites(data.invites);
-        })
-        .catch(console.error)
-        .finally(() => setLoading(false));
+        }
+        if (couple && user) {
+          const res = await fetch("/api/poke");
+          const data = await res.json();
+          if (data.pokes) setUnseenPokes(data.pokes);
+        }
+      } catch (e) {
+        console.error("Error fetching notifications:", e);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (user) {
+      fetchData();
     } else {
       setLoading(false);
     }
@@ -92,6 +106,22 @@ export default function NotificationsPage() {
             <button onClick={() => handleDecline(invite.id)} className="flex-1 py-2 text-xs rounded-xl font-medium" style={{ background: "rgb(var(--surface-muted))" }}>Decline</button>
           </div>
         )
+      });
+    });
+  }
+
+  // 1.5. Pokes
+  if (couple && unseenPokes.length > 0) {
+    unseenPokes.forEach(poke => {
+      notificationItems.push({
+        id: `poke-${poke.id}`,
+        type: "poke",
+        title: `${poke.from.name} poked you!`,
+        description: poke.message || `${poke.from.name} sent you a ${poke.emoji} poke.`,
+        icon: Hand,
+        color: "#d946ef",
+        bg: "rgba(217,70,239,0.1)",
+        link: "/dashboard"
       });
     });
   }

@@ -12,6 +12,7 @@ interface PartnerCardProps {
   sendInvite: () => Promise<void>;
   sendingInvite: boolean;
   inviteSent: boolean;
+  onAvatarClick?: () => void;
 }
 
 export function PartnerCard({
@@ -21,6 +22,7 @@ export function PartnerCard({
   sendInvite,
   sendingInvite,
   inviteSent,
+  onAvatarClick,
 }: PartnerCardProps) {
   const cardVariants = {
     hidden: { opacity: 0, y: 20 },
@@ -52,6 +54,7 @@ export function PartnerCard({
             name={partner.name}
             size={64}
             borderClass="border-2 border-violet-500/50"
+            onClick={onAvatarClick}
           />
 
           <div className="space-y-1">

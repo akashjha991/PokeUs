@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { useClerk } from "@clerk/nextjs";
 import { Avatar } from "@/frontend/components/Avatar";
 import { PartnerCard } from "@/frontend/components/PartnerCard";
+import { ProfileImageModal } from "@/frontend/components/ProfileImageModal";
 
 const BADGES = [
   { icon: "🌟", name: "First Week", desc: "Stayed connected for 7 days", earned: true },
@@ -29,6 +30,7 @@ export default function ProfilePage() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [sendingInvite, setSendingInvite] = useState(false);
   const [inviteSent, setInviteSent] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editName, setEditName] = useState(user?.name || "");
@@ -216,6 +218,7 @@ export default function ProfilePage() {
             gradientBorder={true}
             glow={true}
             floating={true}
+            onClick={user?.avatar ? () => setPreviewImage(user.avatar ?? null) : undefined}
           />
           
           <input 
@@ -279,6 +282,7 @@ export default function ProfilePage() {
           sendInvite={sendInvite}
           sendingInvite={sendingInvite}
           inviteSent={inviteSent}
+          onAvatarClick={partner?.avatar ? () => setPreviewImage(partner.avatar ?? null) : undefined}
         />
 
         {/* Badges Card with glassmorphism */}
@@ -398,6 +402,16 @@ export default function ProfilePage() {
               </div>
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+
+      {/* Profile Image Preview Modal */}
+      <AnimatePresence>
+        {previewImage && (
+          <ProfileImageModal
+            image={previewImage}
+            onClose={() => setPreviewImage(null)}
+          />
         )}
       </AnimatePresence>
     </AppShell>

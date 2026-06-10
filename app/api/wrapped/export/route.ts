@@ -6,6 +6,9 @@ import { uploadImage } from "@/backend/lib/cloudinary";
 import { chromium } from "playwright";
 
 export async function POST(request: NextRequest) {
+  // Set custom local browser path so Playwright resolves the binary correctly on Render runtime
+  process.env.PLAYWRIGHT_BROWSERS_PATH = "./.playwright-browsers";
+
   // 1. Auth check
   const auth = await requireCouple(request);
   if (auth.error) return auth.error;

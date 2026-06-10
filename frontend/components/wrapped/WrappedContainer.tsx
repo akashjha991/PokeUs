@@ -95,7 +95,7 @@ export default function WrappedContainer({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -15 }}
             transition={{ type: "spring", stiffness: 260, damping: 20 }}
-            className="w-full h-full shadow-2xl rounded-[40px] overflow-hidden border border-white/10 relative"
+            className="w-full h-full shadow-2xl rounded-[40px] overflow-hidden relative"
             style={{
               boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
             }}

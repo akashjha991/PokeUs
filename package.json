@@ -5,7 +5,7 @@
   "private": true,
   "scripts": {
     "dev": "node server.js",
-    "build": "npx playwright install chromium && prisma generate && next build",
+    "build": "cross-env PLAYWRIGHT_BROWSERS_PATH=./.playwright-browsers npx playwright install chromium && prisma generate && next build",
     "start": "node server.js --production",
     "lint": "next lint",
     "db:push": "prisma db push",
@@ -55,5 +55,8 @@
     "web-push": "^3.6.7",
     "zod": "^3.24.4",
     "zustand": "^5.0.4"
+  },
+  "devDependencies": {
+    "cross-env": "^10.1.0"
   }
 }

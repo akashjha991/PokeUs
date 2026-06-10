@@ -43,3 +43,6 @@ Thumbs.db
 scratch_test.js
 clear_large_avatar.js
 clear-test-users.js
+
+# Playwright local browser cache
+.playwright-browsers/

@@ -3,11 +3,13 @@ import { requireCouple } from "@/backend/lib/requireAuth";
 import { apiError, apiSuccess } from "@/backend/lib/utils";
 import { generateWeeklyWrapped } from "@/backend/services/wrapped";
 import { uploadImage } from "@/backend/lib/cloudinary";
-import { chromium } from "playwright";
 
 export async function POST(request: NextRequest) {
   // Set custom local browser path so Playwright resolves the binary correctly on Render runtime
   process.env.PLAYWRIGHT_BROWSERS_PATH = "./.playwright-browsers";
+
+  // Dynamically import playwright to guarantee it reads the modified env path during load
+  const { chromium } = await import("playwright");
 
   // 1. Auth check
   const auth = await requireCouple(request);

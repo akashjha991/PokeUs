@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, MessageCircle, Image, Heart, LayoutDashboard, User } from "lucide-react";
+import { Home, MessageCircle, Image, Sparkles, LayoutDashboard, User } from "lucide-react";
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { useAuthStore, useNotificationStore } from "@/frontend/store";
@@ -11,7 +11,7 @@ const NAV_ITEMS = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Home" },
   { href: "/chat", icon: MessageCircle, label: "Chat" },
   { href: "/memories", icon: Image, label: "Memories" },
-  { href: "/mood", icon: Heart, label: "Mood" },
+  { href: "/wrapped", icon: Sparkles, label: "Wrapped" },
   { href: "/profile", icon: User, label: "Profile" },
 ];
 

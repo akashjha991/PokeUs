@@ -78,27 +78,35 @@ export default function WrappedContainer({
   return (
     <div
       ref={containerRef}
-      className="w-full flex justify-center items-start overflow-hidden py-4 select-none relative"
+      className="w-full flex justify-center items-start overflow-hidden py-2 select-none relative"
       style={{ height: scaledHeight }}
     >
-      {/* Scaled viewport container */}
-      <motion.div
-        key={theme}
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.95 }}
-        transition={{ type: "spring", stiffness: 300, damping: 25 }}
-        className="w-[1080px] h-[1920px] absolute origin-top shadow-2xl rounded-[40px] overflow-hidden"
+      {/* Scaling Wrapper - prevents Framer Motion from overriding the calculated scale transform */}
+      <div
+        className="w-[1080px] h-[1920px] absolute origin-top"
         style={{
           transform: `scale(${scale})`,
-          boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.4)",
         }}
       >
-        {renderTheme()}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={theme}
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -15 }}
+            transition={{ type: "spring", stiffness: 260, damping: 20 }}
+            className="w-full h-full shadow-2xl rounded-[40px] overflow-hidden border border-white/10 relative"
+            style={{
+              boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
+            }}
+          >
+            {renderTheme()}
 
-        {/* Floating hearts animation overlay for magical preview feel */}
-        <FloatingHeartsOverlay />
-      </motion.div>
+            {/* Floating hearts animation overlay for magical preview feel */}
+            <FloatingHeartsOverlay />
+          </motion.div>
+        </AnimatePresence>
+      </div>
     </div>
   );
 }

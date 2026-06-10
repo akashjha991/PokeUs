@@ -219,7 +219,7 @@ export default function WrappedPage() {
         </div>
 
         {/* Live Scaled Preview of Selected Theme */}
-        <div className="relative rounded-3xl overflow-hidden border border-white/10 bg-slate-950/40 p-2 shadow-2xl">
+        <div className="relative rounded-[32px] overflow-hidden border border-white/10 bg-white/5 backdrop-blur-md p-3 shadow-2xl">
           <WrappedContainer
             data={wrappedData}
             aiSummary={aiSummary}

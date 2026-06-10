@@ -92,15 +92,8 @@ export async function GET(request: NextRequest) {
 
     const weekRange = `${weekStart.toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${weekEnd.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
 
-    // Parallel data collection for the week
-    const [
-      messageCount,
-      pokes,
-      memories,
-      moods,
-      calendarEvents,
-      notes,
-    ] = await Promise.all([
+    // Parallel data collection for the week — use allSettled so one failing query doesn't crash all
+    const results = await Promise.allSettled([
       prisma.message.count({
         where: { coupleId, createdAt: { gte: weekStart, lte: weekEnd } },
       }),
@@ -129,6 +122,13 @@ export async function GET(request: NextRequest) {
         take: 5,
       }),
     ]);
+
+    const messageCount = results[0].status === "fulfilled" ? (results[0].value as number) : 0;
+    const pokes       = results[1].status === "fulfilled" ? (results[1].value as any[]) : [];
+    const memories    = results[2].status === "fulfilled" ? (results[2].value as number) : 0;
+    const moods       = results[3].status === "fulfilled" ? (results[3].value as any[]) : [];
+    const calendarEvents = results[4].status === "fulfilled" ? (results[4].value as any[]) : [];
+    // notes not used in summary — silently ignored
 
     // Derive stats
     const pokesCount = pokes.length;

@@ -975,8 +975,10 @@ export async function POST(request: NextRequest) {
     console.log("[wrapped/export] Uploaded successfully to Cloudinary:", uploadResult.url);
 
     return apiSuccess({
-      url: uploadResult.url,
-      theme,
+      data: {
+        url: uploadResult.url,
+        theme,
+      }
     });
   } catch (error) {
     console.error("[api/wrapped/export] Satori export error:", error);

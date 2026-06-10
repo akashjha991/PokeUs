@@ -5,21 +5,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useState } from "react";
 import { 
   Sparkles, 
-  Share2, 
-  Download, 
   RefreshCw, 
-  Star, 
   Lightbulb, 
   Trophy, 
   Heart, 
-  Image as ImageIcon,
-  CheckCircle,
-  Copy,
-  ChevronRight,
-  BookOpen,
-  Send
+  BookOpen
 } from "lucide-react";
-import { toast } from "sonner";
 import { useAuthStore } from "@/frontend/store";
 import WrappedContainer from "@/frontend/components/wrapped/WrappedContainer";
 import { RelationshipData, AISummary } from "@/shared/types/wrapped";
@@ -42,9 +33,6 @@ export default function WrappedPage() {
 
   // Active theme selection
   const [selectedTheme, setSelectedTheme] = useState("storybook");
-  const [isExporting, setIsExporting] = useState(false);
-  const [exportedUrl, setExportedUrl] = useState<string | null>(null);
-
   // Load wrapped statistics
   useEffect(() => {
     async function load() {
@@ -68,76 +56,6 @@ export default function WrappedPage() {
     }
     load();
   }, []);
-
-  // Export card to PNG via server Playwright API
-  async function triggerExport(themeId: string): Promise<string | null> {
-    try {
-      setIsExporting(true);
-      const res = await fetch("/api/wrapped/export", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ theme: themeId }),
-      });
-      const json = await res.json();
-      if (res.ok && json.data?.url) {
-        return json.data.url;
-      } else {
-        toast.error(json.error || "Failed to export image");
-        return null;
-      }
-    } catch {
-      toast.error("Export service failed");
-      return null;
-    } finally {
-      setIsExporting(false);
-    }
-  }
-
-  // Action: Download card
-  async function handleDownload() {
-    const url = await triggerExport(selectedTheme);
-    if (!url) return;
-
-    // Trigger download in browser
-    const response = await fetch(url);
-    const blob = await response.blob();
-    const blobUrl = window.URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = blobUrl;
-    link.download = `pokeus-wrapped-${selectedTheme}.png`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(blobUrl);
-
-    toast.success("Card downloaded successfully! 📸");
-  }
-
-  // Action: Copy image link
-  async function handleCopyLink() {
-    const url = await triggerExport(selectedTheme);
-    if (!url) return;
-
-    navigator.clipboard.writeText(url);
-    toast.success("Image link copied to clipboard! 🔗");
-  }
-
-  // Action: WhatsApp share
-  async function handleWhatsAppShare() {
-    if (!wrappedData || !aiSummary) return;
-    const url = await triggerExport(selectedTheme);
-    const shareText = `✨ Our PokeUs Week Wrapped ✨\n\n"${aiSummary.subtitle}"\n\nCheck out our relationship story here: ${url || "PokeUs App"} 💜`;
-    
-    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`, "_blank");
-  }
-
-  // Action: Instagram Story Share instructions
-  async function handleInstagramShare() {
-    toast.info("Downloading high-res story template... Save it to your gallery and share on Instagram! 📸", {
-      duration: 5000,
-    });
-    await handleDownload();
-  }
 
   if (loading) {
     return (
@@ -227,18 +145,6 @@ export default function WrappedPage() {
             isExportMode={false}
           />
           
-          {isExporting && (
-            <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm z-30 flex flex-col items-center justify-center space-y-4">
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
-              >
-                <Sparkles size={40} className="text-pink-400" />
-              </motion.div>
-              <p className="text-md font-bold text-white">Exporting high-resolution PNG...</p>
-              <p className="text-xs text-[#B0A5D0]">Playwright rendering card at 1080x1920</p>
-            </div>
-          )}
         </div>
 
         {/* Theme Selector (horizontal scrolling buttons) */}
@@ -269,40 +175,51 @@ export default function WrappedPage() {
           </div>
         </div>
 
-        {/* Action sharing grid */}
-        <div className="grid grid-cols-2 gap-3">
-          <button
-            onClick={handleInstagramShare}
-            disabled={isExporting}
-            className="py-4 px-4 bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500 rounded-2xl text-sm font-bold text-white flex items-center justify-center gap-2 shadow-lg transition-transform active:scale-95 disabled:opacity-50"
+        {/* Weekly Narrative and Stats */}
+        <div className="space-y-4 pt-4">
+          <div className="h-px bg-white/10" />
+          <p className="text-xs font-bold uppercase tracking-wider text-purple-300 flex items-center gap-2">
+            📖 This Week's Narrative
+          </p>
+
+          {/* AI Diary story detail */}
+          <div 
+            className="bg-white/5 border border-white/10 rounded-3xl p-5 space-y-3"
+            style={{ borderLeft: "4px solid #d946ef" }}
           >
-            <ImageIcon size={16} />
-            Instagram Story
-          </button>
-          <button
-            onClick={handleWhatsAppShare}
-            disabled={isExporting}
-            className="py-4 px-4 bg-[#25D366] hover:bg-[#20ba56] rounded-2xl text-sm font-bold text-white flex items-center justify-center gap-2 shadow-lg transition-transform active:scale-95 disabled:opacity-50"
+            <p className="text-xs font-bold uppercase tracking-widest text-[#d946ef] flex items-center gap-1.5">
+              <BookOpen size={12} /> Chapter Summary
+            </p>
+            <h3 className="font-bold text-md text-white">&ldquo;{aiSummary.title}&rdquo;</h3>
+            <p className="text-sm text-[#B0A5D0] leading-relaxed">
+              {aiSummary.story}
+            </p>
+          </div>
+
+          {/* Unlocked Achievement */}
+          <div 
+            className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 rounded-3xl p-5 flex items-center gap-4"
           >
-            <Send size={16} />
-            WhatsApp Share
-          </button>
-          <button
-            onClick={handleDownload}
-            disabled={isExporting}
-            className="py-4 px-4 bg-slate-900 border border-white/10 rounded-2xl text-sm font-semibold text-slate-200 flex items-center justify-center gap-2 hover:bg-slate-800 transition-transform active:scale-95 disabled:opacity-50"
+            <div className="w-12 h-12 rounded-2xl bg-amber-500/20 flex items-center justify-center flex-shrink-0">
+              <Trophy className="w-6 h-6 text-amber-400" />
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-amber-400">Relationship Achievement</p>
+              <p className="font-bold text-sm text-white mt-0.5">{aiSummary.achievement}</p>
+            </div>
+          </div>
+
+          {/* Connection Insight */}
+          <div 
+            className="bg-white/5 border border-white/10 rounded-3xl p-5 space-y-2"
           >
-            <Download size={16} />
-            Download PNG
-          </button>
-          <button
-            onClick={handleCopyLink}
-            disabled={isExporting}
-            className="py-4 px-4 bg-slate-900 border border-white/10 rounded-2xl text-sm font-semibold text-slate-200 flex items-center justify-center gap-2 hover:bg-slate-800 transition-transform active:scale-95 disabled:opacity-50"
-          >
-            <Copy size={16} />
-            Copy Image URL
-          </button>
+            <p className="text-xs font-bold uppercase tracking-wider text-[#8b5cf6] flex items-center gap-1.5">
+              <Lightbulb size={12} /> Weekly Insight
+            </p>
+            <p className="text-sm text-[#B0A5D0] leading-relaxed">
+              {aiSummary.insight}
+            </p>
+          </div>
         </div>
       </div>
     </AppShell>
